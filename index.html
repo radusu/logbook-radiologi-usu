@@ -60,8 +60,8 @@ a{color:var(--usu)}
 .stats .s b{display:block; font-family:var(--f-disp); font-size:19px; color:var(--usu-deep)}
 .stats .s span{display:block; font-size:11.5px; color:var(--graphite); margin-top:3px}
 
-.counters{max-width:500px; margin:0 auto; padding:44px 24px 6px;
-  display:grid; grid-template-columns:repeat(2,1fr); gap:24px; text-align:center}
+.counters{max-width:640px; margin:0 auto; padding:44px 24px 6px;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:24px; text-align:center}
 .counters .num{display:block; font-family:var(--f-disp); font-weight:700; font-size:44px; color:var(--usu-deep); line-height:1}
 .counters span{display:block; font-size:12.5px; color:var(--graphite); margin-top:8px}
 
@@ -137,6 +137,7 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 
 <div class="counters">
   <div class="c"><b class="num" data-target="23">0</b><span>Lulusan</span></div>
+  <div class="c"><b class="num" data-target="5">0</b><span>Provinsi</span></div>
   <div class="c"><b class="num" data-target="19">0</b><span>Peserta Pendidikan Aktif</span></div>
 </div>
 
@@ -6738,7 +6739,7 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 </script>
 
 
-<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.5.0</footer>
+<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.6.0</footer>
 <script>
 document.querySelectorAll(".num").forEach(el => {
   const target = +el.dataset.target, durasi = 1200, mulai = performance.now();
