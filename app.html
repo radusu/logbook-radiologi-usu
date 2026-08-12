@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Logbook Radiologi Fakultas Kedokteran Universitas Sumatera Utara</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzExMTExMSIvPgogIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQ0IiBmaWxsPSIjRkZDQzAwIi8+CiAgPHBhdGggZD0iTTUwLDUwIEwyOSwxMy42IEE0Miw0MiAwIDAsMSA3MSwxMy42IFoiIGZpbGw9IiMxMTExMTEiLz4KICA8cGF0aCBkPSJNNTAsNTAgTDkyLDUwIEE0Miw0MiAwIDAsMSA3MSw4Ni40IFoiIGZpbGw9IiMxMTExMTEiLz4KICA8cGF0aCBkPSJNNTAsNTAgTDI5LDg2LjQgQTQyLDQyIDAgMCwxIDgsNTAgWiIgZmlsbD0iIzExMTExMSIvPgogIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjkiIGZpbGw9IiMxMTExMTEiLz4KPC9zdmc+Cg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -446,7 +447,8 @@ const pendingSaya = () => DB.entries.filter(e => e.status === "menunggu" &&
   (e.supervisor === DB.aktif || e.pembimbing === DB.aktif));
 
 /* ============ 0b. HALAMAN MASUK ============ */
-let modeLogin = "masuk";      // "masuk" atau "daftar"
+let modeLogin = "masuk";      // "masuk", "daftar", atau "lupa"
+let sesiPemulihan = false;    // true saat pengguna datang lewat tautan reset kata sandi
 
 // Ubah satu baris tabel profil (kolom snake_case) ke bentuk yang dipakai
 // kode lama (DB.users, camelCase), supaya bagian lain aplikasi belum perlu diubah.
@@ -659,18 +661,28 @@ async function muatSemuaAkun(){
 
 function vLogin(){
   const daftar = modeLogin === "daftar";
+  const lupa = modeLogin === "lupa";
   return `<div class="login-luar"><div class="login">
     <img class="login-logo" alt="Lambang Universitas Sumatera Utara" src="${LOGO_USU}">
     <h1>Logbook Radiologi</h1>
     <p class="login-sub">Program Pendidikan Dokter Spesialis &amp; Program Profesi Dokter<br>
       Departemen - Program Studi Radiologi, Universitas Sumatera Utara</p>
 
+    ${lupa ? "" : `
     <div class="tabs-login">
       <button data-act="modeMasuk" aria-pressed="${!daftar}">Masuk</button>
       <button data-act="modeDaftar" aria-pressed="${daftar}">Daftar</button>
-    </div>
+    </div>`}
 
-    ${daftar ? `
+    ${lupa ? `
+      <div style="text-align:left">
+        ${F("Alamat email", `<input type="text" id="lp-email" placeholder="nama@email.com"
+             autocomplete="username" spellcheck="false">`,
+          "Tautan untuk membuat kata sandi baru akan dikirim ke email ini.")}
+      </div>
+      <button class="btn btn-p" style="width:100%; padding:11px" data-act="kirimLupaSandi">Kirim tautan reset</button>
+      <div class="login-nota"><a href="#" onclick="return false" data-act="modeMasuk">&larr; Kembali ke Masuk</a></div>`
+    : daftar ? `
       <div style="text-align:left">
         ${F("Nama lengkap dengan gelar", `<input type="text" id="d-nama" placeholder="dr. Nama Lengkap">`)}
         ${F("Alamat email", `<input type="text" id="d-email" placeholder="nama@email.com" spellcheck="false">`)}
@@ -693,9 +705,26 @@ function vLogin(){
         ${F("Alamat email", `<input type="text" id="l-email" placeholder="nama@email.com"
              autocomplete="username" spellcheck="false">`)}
         ${F("Kata sandi", `<input type="password" id="l-sandi" placeholder="••••••••" autocomplete="current-password">`)}
+        <div style="text-align:right; margin:-6px 0 12px">
+          <a href="#" onclick="return false" data-act="modeLupa" style="font-size:12.5px">Lupa kata sandi?</a>
+        </div>
       </div>
       <button class="btn btn-p" style="width:100%; padding:11px" data-act="masukEmail">Masuk</button>
       <div class="login-nota">Belum punya akun? Pilih tab <b>Daftar</b> di atas.</div>`}
+  </div></div>`;
+}
+
+function vResetSandi(){
+  return `<div class="login-luar"><div class="login">
+    <img class="login-logo" alt="Lambang Universitas Sumatera Utara" src="${LOGO_USU}">
+    <h1>Buat kata sandi baru</h1>
+    <p class="login-sub">Masukkan kata sandi baru untuk akun Anda.</p>
+    <div style="text-align:left">
+      ${F("Kata sandi baru", `<input type="password" id="rs-sandi" placeholder="Minimal 8 karakter">`,
+        "Wajib memuat huruf besar, huruf kecil, angka, dan simbol (misalnya: Radiologi26!).")}
+      ${F("Ulangi kata sandi baru", `<input type="password" id="rs-sandi2" placeholder="Ketik ulang kata sandi">`)}
+    </div>
+    <button class="btn btn-p" style="width:100%; padding:11px" data-act="simpanSandiBaru">Simpan kata sandi</button>
   </div></div>`;
 }
 
@@ -2335,6 +2364,32 @@ document.addEventListener("click", async ev => {
   if(a==="bukaProfilSaya"){ tab = "profil"; akunMenuTerbuka = false; render(); return; }
   if(a==="modeMasuk"){ modeLogin = "masuk"; render(); return; }
   if(a==="modeDaftar"){ modeLogin = "daftar"; render(); return; }
+  if(a==="modeLupa"){ modeLogin = "lupa"; render(); return; }
+  if(a==="kirimLupaSandi"){
+    const em = (val("lp-email")||"").toLowerCase().trim();
+    if(!em || em.indexOf("@") < 1){ toast("Masukkan alamat email yang benar."); return; }
+    const { error } = await sb.auth.resetPasswordForEmail(em, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if(error){ toast("Gagal mengirim tautan: " + error.message); return; }
+    modeLogin = "masuk";
+    toast("Jika email terdaftar, tautan reset kata sandi sudah dikirim. Cek kotak masuk / folder spam.");
+    render();
+    return;
+  }
+  if(a==="simpanSandiBaru"){
+    const sd = val("rs-sandi"), sd2 = val("rs-sandi2");
+    if(!sandiKuat(sd)){ toast("Kata sandi minimal 8 karakter dan wajib memuat huruf besar, huruf kecil, angka, dan simbol."); return; }
+    if(sd !== sd2){ toast("Kata sandi dan ulangannya belum sama."); return; }
+    const { error } = await sb.auth.updateUser({ password: sd });
+    if(error){ toast("Gagal menyimpan kata sandi: " + error.message); return; }
+    sesiPemulihan = false;
+    await sb.auth.signOut();
+    modeLogin = "masuk";
+    toast("Kata sandi baru tersimpan. Silakan masuk kembali.");
+    render();
+    return;
+  }
   if(a==="masukEmail"){
     const em = (val("l-email")||"").toLowerCase().trim();
     const sd = val("l-sandi");
@@ -2715,6 +2770,11 @@ document.addEventListener("change", e => {
 /* ============ 13. RENDER ============ */
 function render(){
   const bar = document.querySelector(".topbar"), nav = document.querySelector(".nav");
+  if(sesiPemulihan){
+    bar.style.display = "none"; nav.style.display = "none";
+    document.getElementById("view").innerHTML = vResetSandi();
+    return;
+  }
   if(!DB.sesiLogin){
     bar.style.display = "none"; nav.style.display = "none";
     document.getElementById("view").innerHTML = vLogin();
@@ -2752,6 +2812,9 @@ setInterval(() => {
 
   // Identitas akun: sungguhan lewat Supabase Auth + tabel profil.
   sb.auth.onAuthStateChange(async (event, session) => {
+    if(event === "PASSWORD_RECOVERY"){
+      sesiPemulihan = true; render(); return;
+    }
     if(session && session.user){
       await muatProfilAktif(session.user.id);
     } else {
