@@ -1018,11 +1018,11 @@ const IKON_NAV = {
 function menu(){
   const u = me(), p = u.peran;
   if(p === "supervisor") return [["beranda","Beranda"],["verifikasi","Verifikasi",pendingSaya().length],["peserta","Peserta"],["pantau","Absensi"],["tesis","Tesis"],["semua","Semua Entri"]];
-  if(p === "tenaga_pendidik") return [["beranda","Beranda"],["rekap","Rekap Peserta"],["pantau","Absensi"],
+  if(p === "tenaga_pendidik") return [["beranda","Beranda"],["peserta","Peserta"],["pantau","Absensi"],
     ["cuti","Cuti & Izin", cutiMenunggu().length],
     ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length]];
   if(p === "admin"){
-    const dasar = [["beranda","Beranda"],["rekap","Rekap Peserta"],["pantau","Absensi"],
+    const dasar = [["beranda","Beranda"],["peserta","Peserta"],["pantau","Absensi"],
       ["cuti","Cuti & Izin", cutiMenunggu().length],["tesis","Tesis"],
       ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length + pengajuanSemesterMenunggu.length],
       ["semua","Semua Entri"],["pengaturan","Pengaturan"]];
@@ -1149,6 +1149,8 @@ function berandaSupervisor(){
       : `<div class="empty"><b>Antrean kosong</b>Semua entri yang ditujukan kepada Anda sudah diproses.</div>`}</div></div>`;
 }
 const isPesertaPeran = p => p==="ppds"||p==="p3d";
+// Data diri minimal yang wajib diisi peserta sebelum bisa memakai logbook.
+const profilBelumLengkap = u => !u.nik || !u.tempatLahir || !u.tanggalLahir;
 
 function berandaAdmin(){
   const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
@@ -2106,7 +2108,7 @@ function vSemester(){
     Semester ditetapkan oleh Admin Program Studi.</p>`;
 }
 
-// Daftar peserta untuk supervisor (baca saja, tanpa kemampuan mengubah semester).
+// Daftar peserta — dipakai bersama oleh Admin, Tenaga Pendidik, dan Supervisor.
 function vDaftarPeserta(){
   const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
   return `<div class="card"><div class="card-h"><h2>Daftar Peserta</h2>
@@ -2125,11 +2127,13 @@ function vDaftarPeserta(){
       }).join("")}
     </table></div></div>`;
 }
-// Profil peserta untuk supervisor — data diri & riwayat pendidikan hanya tampil (baca saja),
-// tidak ada formulir pengaturan semester seperti pada versi Admin.
+// Profil satu peserta dalam satu halaman: data diri, riwayat pendidikan, dan rekap capaian.
+// Kartu "Atur semester" hanya tampil untuk Admin/Tenaga Pendidik — Supervisor hanya bisa melihat.
 function vPesertaProfil(){
   const u = DB.users.find(x=>x.id===pesertaDibuka);
   if(!u) return `<div class="empty"><b>Peserta tidak ditemukan</b></div>`;
+  const bisaUbahSemester = me().peran === "admin" || me().peran === "tenaga_pendidik";
+  const oto = semesterOtomatis(u, hariIni());
   const aktif = cutiAktif(u.id);
   const riwayat = u.riwayatPendidikan || [];
   return `<button class="btn btn-o btn-s" data-act="tutupPeserta" style="margin-bottom:14px">&larr; Kembali ke daftar</button>
@@ -2149,30 +2153,14 @@ function vPesertaProfil(){
           <div><dt>Tempat, tanggal lahir</dt><dd>${esc(u.tempatLahir||"—")}${u.tanggalLahir?", "+tglID(u.tanggalLahir):""}</dd></div>
           <div><dt>Keterangan</dt><dd>${esc(u.ket)}</dd></div>
         </dl></div></div>
-      <div class="card"><div class="card-h"><h2>Riwayat pendidikan</h2></div>
+      <div class="card" style="margin-bottom:14px"><div class="card-h"><h2>Riwayat pendidikan</h2></div>
         <div class="card-b">
           ${riwayat.length ? `<dl class="dl">${riwayat.map(r=>
               `<div><dt>${esc(r.jenjang||"—")}</dt><dd>${esc(r.institusi||"—")}${r.tahun?" &middot; "+esc(r.tahun):""}</dd></div>`
             ).join("")}</dl>`
             : `<div class="empty"><b>Belum ada riwayat</b>Peserta belum mengisi riwayat pendidikan.</div>`}
         </div></div>
-    </div>
-  </div>`;
-}
-function vPesertaDetail(){
-  const u = DB.users.find(x=>x.id===pesertaDibuka);
-  if(!u) return `<div class="empty"><b>Peserta tidak ditemukan</b></div>`;
-  const oto = semesterOtomatis(u, hariIni());
-  const aktif = cutiAktif(u.id);
-  return `<button class="btn btn-o btn-s" data-act="tutupPeserta" style="margin-bottom:14px">&larr; Kembali ke rekap</button>
-  <div class="grid g-side">
-    <div class="card"><div class="card-h">
-      <div><span class="eyebrow">${esc(u.nim)}</span><h2>${esc(u.nama)}</h2></div>
-      <span class="sub">${esc(labelSemester(u))}</span></div>
-      <div class="card-b" style="padding:0">${tabelSemester(u)}</div></div>
-    <div>
-      ${aktif?`<div class="banner" style="border-left-color:var(--amber); margin-bottom:14px">
-        <b>Sedang ${esc(aktif.jenis.toLowerCase())}</b> sampai ${tglID(aktif.selesai)}.</div>`:""}
+      ${bisaUbahSemester ? `
       <div class="card"><div class="card-h"><h2>Atur semester</h2></div>
         <div class="card-b">
           ${F("Tanggal mulai pendidikan", `<input type="date" id="p-mulai" value="${u.mulaiPendidikan||""}">`,
@@ -2188,8 +2176,9 @@ function vPesertaDetail(){
             "Isi hanya bila semester peserta berbeda dari hitungan otomatis, misalnya karena pindahan atau perpanjangan khusus.")}
           ${F("Keterangan", `<input type="text" id="p-ket" value="${esc(u.ket)}">`)}
           <button class="btn btn-p" data-act="simpanSemester" data-id="${u.id}">Simpan</button>
-        </div></div>
-    </div></div>`;
+        </div></div>` : ""}
+    </div>
+  </div>`;
 }
 
 /* ============ 11d. TESIS ============ */
@@ -2891,6 +2880,14 @@ function render(){
     document.getElementById("view").innerHTML = vMenunggu();
     return;
   }
+  if(isPesertaPeran(me().peran) && profilBelumLengkap(me())){
+    bar.style.display = ""; nav.style.display = "none";
+    document.body.classList.remove("punya-sidebar");
+    document.getElementById("view").innerHTML =
+      `<div class="banner">Lengkapi data diri Anda terlebih dahulu (NIK, tempat, dan tanggal lahir) sebelum menggunakan logbook.</div>`
+      + vProfilSaya();
+    return;
+  }
   bar.style.display = ""; nav.style.display = "";
   document.body.classList.add("punya-sidebar");
   const img = document.getElementById("logoUSU");
@@ -2903,7 +2900,6 @@ function render(){
     cuti: (me().peran==="admin" || me().peran==="tenaga_pendidik") ? vCutiAdmin : vCuti,
     tesis: me().peran==="ppds" ? vTesis : vTesisPantau,
     ujian: formUjianTingkat,
-    rekap: pesertaDibuka ? vPesertaDetail : berandaAdmin,
     peserta: pesertaDibuka ? vPesertaProfil : vDaftarPeserta
   }[tab] || vBeranda;
   document.getElementById("view").innerHTML = v() + vLightbox();
