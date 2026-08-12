@@ -892,6 +892,18 @@ function vProfilSaya(){
   </div>
 
   <div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Ubah kata sandi</h2></div>
+    <div class="card-b">
+      <div class="grid g2">
+        ${F("Kata sandi baru", `<input type="password" id="p-sandi-baru" placeholder="Minimal 8 karakter" autocomplete="new-password">`,
+          "Wajib memuat huruf besar, huruf kecil, angka, dan simbol.")}
+        ${F("Ulangi kata sandi baru", `<input type="password" id="p-sandi-baru2" placeholder="Ketik ulang kata sandi" autocomplete="new-password">`)}
+      </div>
+      <button class="btn btn-p" data-act="ubahSandi">Simpan kata sandi baru</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <div class="card-h"><h2>Riwayat pendidikan</h2></div>
     <div class="card-b">
       ${draftRiwayat.map(baris).join("") || `<div class="empty"><b>Belum ada riwayat</b>Tambahkan jenjang pendidikan Anda.</div>`}
@@ -2685,6 +2697,16 @@ document.addEventListener("click", async ev => {
     }).eq("id", DB.aktif);
     if(error){ toast("Gagal menyimpan data diri: " + error.message); return; }
     await muatProfilAktif(DB.aktif); render(); toast("Data diri tersimpan."); return;
+  }
+  if(a==="ubahSandi"){
+    const sd = val("p-sandi-baru"), sd2 = val("p-sandi-baru2");
+    if(!sandiKuat(sd)){ toast("Kata sandi minimal 8 karakter dan wajib memuat huruf besar, huruf kecil, angka, dan simbol."); return; }
+    if(sd !== sd2){ toast("Kata sandi dan ulangannya belum sama."); return; }
+    const { error } = await sb.auth.updateUser({ password: sd });
+    if(error){ toast("Gagal mengubah kata sandi: " + error.message); return; }
+    const i1 = document.getElementById("p-sandi-baru"), i2 = document.getElementById("p-sandi-baru2");
+    if(i1) i1.value = ""; if(i2) i2.value = "";
+    toast("Kata sandi berhasil diubah."); return;
   }
   if(a==="tambahRiwayat"){ draftRiwayat.push({jenjang:"",institusi:"",tahun:""}); render(); return; }
   if(a==="hapusRiwayat"){ draftRiwayat.splice(+b.dataset.i,1); render(); return; }
