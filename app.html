@@ -360,6 +360,7 @@ const ILMIAH_P3D  = ["Pembacaan Makalah","Pretest","Postest"];
 const JENIS_JAGA  = ["Jaga Pagi","Jaga Sore","Jaga Malam","Jaga Hari Libur","Rotasi Stase (absensi harian)"];
 
 const PERAN_ILMIAH = ["Presentan","Peserta / audiens"];
+const JENJANG_UJIAN = ["Junior","Madya","Mandiri","Pra Kunkri","OSCE Pra Kunkri"];
 
 const hurufMutu = n => n>=80?"A" : n>=75?"B+" : n>=70?"B" : n>=65?"C+" : n>=60?"C" : n>=50?"D" : "E";
 const LULUS = 70;   // batas nilai minimal, sesuaikan dengan ketentuan prodi
@@ -474,27 +475,32 @@ async function muatProfilAktif(userId){
   DB.aktif = p.id;
   DB.sesiLogin = true;
 
+  // Muat data pendukung satu per satu. Dibungkus try/catch per langkah supaya
+  // satu permintaan yang gagal (mis. koneksi terputus sesaat) tidak membuat
+  // seluruh proses masuk berhenti dan pengguna tertahan di halaman login.
+  const amanMuat = async (fn) => { try { await fn(); } catch(e) { console.error(e); } };
+
   // Staf/admin butuh melihat semua akun (menu Akun, rekap peserta, dsb).
   // Peserta biasa hanya butuh melihat daftar staf, untuk dropdown supervisor/pembimbing.
-  if(p.peran === "admin" || p.peran === "supervisor" || p.peran === "tenaga_pendidik") await muatSemuaAkun();
-  else await muatDaftarStaf();
+  if(p.peran === "admin" || p.peran === "supervisor" || p.peran === "tenaga_pendidik") await amanMuat(muatSemuaAkun);
+  else await amanMuat(muatDaftarStaf);
 
-  if(p.peran === "ppds") await muatPengajuanSemesterSaya();
-  if(p.peran === "admin") await muatPengajuanSemesterMenunggu();
-  if(p.peran === "ppds" || p.peran === "p3d") await muatEntriSaya();
-  if(p.peran === "supervisor" || (p.peran === "admin" && p.superAdmin)) await muatEntriUntukVerifikasi();
+  if(p.peran === "ppds") await amanMuat(muatPengajuanSemesterSaya);
+  if(p.peran === "admin") await amanMuat(muatPengajuanSemesterMenunggu);
+  if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatEntriSaya);
+  if(p.peran === "supervisor" || (p.peran === "admin" && p.superAdmin)) await amanMuat(muatEntriUntukVerifikasi);
 
-  await muatLokasi();
-  if(p.peran === "ppds" || p.peran === "p3d") await muatAbsensiSaya();
-  if(p.peran === "supervisor" || p.peran === "admin" || p.peran === "tenaga_pendidik") await muatAbsensiSemua();
+  await amanMuat(muatLokasi);
+  if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatAbsensiSaya);
+  if(p.peran === "supervisor" || p.peran === "admin" || p.peran === "tenaga_pendidik") await amanMuat(muatAbsensiSemua);
 
   DB.cuti = [];
-  if(p.peran === "ppds" || p.peran === "p3d") await muatCutiSaya();
-  if(p.peran === "admin" || p.peran === "tenaga_pendidik") await muatCutiSemua();
+  if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatCutiSaya);
+  if(p.peran === "admin" || p.peran === "tenaga_pendidik") await amanMuat(muatCutiSemua);
 
   DB.tesis = [];
-  if(p.peran === "ppds") await muatTesisSaya();
-  if(p.peran === "admin"){ await muatTesisSemua(); await muatEntriTesisSemua(); }
+  if(p.peran === "ppds") await amanMuat(muatTesisSaya);
+  if(p.peran === "admin"){ await amanMuat(muatTesisSemua); await amanMuat(muatEntriTesisSemua); }
 }
 
 async function muatPengajuanSemesterSaya(){
@@ -516,7 +522,8 @@ async function muatPengajuanSemesterMenunggu(){
 function entriKeApp(e){
   return Object.assign({
     id: e.id, userId: e.user_id,
-    kategori: e.kategori === "tesis_final" ? "tesisFinal" : e.kategori,
+    kategori: e.kategori === "tesis_final" ? "tesisFinal"
+      : e.kategori === "ujian_tingkat" ? "ujianTingkat" : e.kategori,
     tanggal: e.tanggal, status: e.status,
     supervisor: e.supervisor_id, verifikator: e.verifikator_id, waktuVerifikasi: e.waktu_verifikasi,
     catatan: e.catatan || "", catatanVerifikator: e.catatan_verifikator || "",
@@ -613,7 +620,7 @@ function tesisKeApp(t){
 }
 async function muatTesisSaya(){
   const { data, error } = await sb.from("tesis").select("*").eq("user_id", DB.aktif);
-  if(error){ toast("Gagal memuat data tesis."); return; }
+  if(error){ toast("Gagal memuat data tesis: " + error.message); return; }
   DB.tesis = data.map(tesisKeApp);
 }
 async function muatTesisSemua(){
@@ -945,7 +952,7 @@ function menu(){
     return dasar;
   }
   return [["beranda","Beranda"],["absensi","Absensi"],["kasus","Kasus"],["tindakan","Tindakan"],["ilmiah","Ilmiah"],["jaga","Jaga & Stase"],["semester","Rekap Semester"]]
-    .concat(p==="ppds" ? [["tesis","Tesis"]] : [])
+    .concat(p==="ppds" ? [["tesis","Tesis"],["ujian","Ujian Tingkat"]] : [])
     .concat([["cuti","Cuti & Izin"],["riwayat","Riwayat"]]);
 }
 function renderNav(){
@@ -1105,6 +1112,7 @@ function judulEntri(e){
   if(e.kategori==="absensi") return `Absensi ${e.kegiatan} — ${e.lokasi}`;
   if(e.kategori==="bimbingan") return `Bimbingan ${e.tahap}`;
   if(e.kategori==="tesisFinal") return `Naskah final — ${e.tahap}`;
+  if(e.kategori==="ujianTingkat") return `Ujian Kenaikan Tingkat — ${e.jenjang}`;
   return "Entri";
 }
 function metaEntri(e){
@@ -1120,6 +1128,9 @@ function metaEntri(e){
     return `${e.cara||"—"} · Pembimbing: ${nama(e.pembimbing)} · ${(e.materi||"").slice(0,80)}`;
   if(e.kategori==="tesisFinal")
     return `${e.judul||"(judul belum diisi)"} · Kepada ${nama(e.supervisor)}`;
+  if(e.kategori==="ujianTingkat")
+    return `Penguji: ${nama(e.supervisor)}`
+      + (e.penilaian ? ` · Nilai ${e.penilaian.total.toFixed(1)} (${e.penilaian.huruf})` : "");
   if(e.kategori==="absensi"){
     return `${jam(e.masuk.waktu)}–${e.keluar?jam(e.keluar.waktu):"berjalan"}`
       + (e.durasiMenit!=null?` · ${durasiSingkat(e.durasiMenit)}`:"")
@@ -1218,6 +1229,27 @@ function formIlmiah(){
     <div style="display:flex; gap:9px; flex-wrap:wrap">
       <button class="btn btn-p" data-act="simpan" data-kat="ilmiah" data-status="menunggu">Kirim untuk verifikasi</button>
       <button class="btn btn-o" data-act="simpan" data-kat="ilmiah" data-status="draft">Simpan sebagai draf</button>
+    </div></div></div>`;
+}
+
+function formUjianTingkat(){
+  return `<div class="card"><div class="card-h">
+    <div><span class="eyebrow">Formulir</span><h2>Ajukan ujian kenaikan tingkat</h2></div>
+    <span class="sub">Nilai akhir diisi oleh konsulen penguji saat memverifikasi.</span></div>
+    <div class="card-b"><div class="grid g2">
+      <div>
+        ${F(`Tanggal <span class="req">*</span>`, `<input type="date" id="f-tanggal" value="${hariIni()}">`)}
+        ${F(`Jenjang ujian <span class="req">*</span>`, `<select id="f-jenjang">${opt(JENJANG_UJIAN)}</select>`)}
+      </div>
+      <div>
+        ${F(`Konsulen penguji <span class="req">*</span>`, `<select id="f-pembimbing">${optUser("supervisor")}</select>`)}
+        ${F("Catatan tambahan", `<textarea id="f-catatan" placeholder="Opsional"></textarea>`)}
+      </div>
+    </div>
+    ${kotakUnggah()}
+    <div style="display:flex; gap:9px; flex-wrap:wrap">
+      <button class="btn btn-p" data-act="simpan" data-kat="ujianTingkat" data-status="menunggu">Kirim untuk verifikasi</button>
+      <button class="btn btn-o" data-act="simpan" data-kat="ujianTingkat" data-status="draft">Simpan sebagai draf</button>
     </div></div></div>`;
 }
 
@@ -1399,7 +1431,7 @@ function vLightbox(){
 
 /* ============ 9c. LEMBAR PENILAIAN KONSULEN ============ */
 // Penilaian hanya berlaku bila peserta bertindak sebagai presentan.
-const butuhNilai = e => e.kategori==="ilmiah" && e.peranIlmiah==="Presentan";
+const butuhNilai = e => (e.kategori==="ilmiah" && e.peranIlmiah==="Presentan") || e.kategori==="ujianTingkat";
 
 const nilaiLengkap = v => v !== "" && v !== null && v !== undefined && !isNaN(v);
 
@@ -2252,6 +2284,23 @@ async function simpanEntri(kat, status){
     tab = "riwayat"; filterKat = "semua"; render();
     return;
   }
+  if(kat==="ujianTingkat"){
+    const pembimbingId = val("f-pembimbing");
+    if(!pembimbingId){ toast("Pilih konsulen penguji."); return; }
+    const rincian = { jenjang: val("f-jenjang") };
+    const lampiran = await unggahLampiran();
+    const { data, error } = await sb.from("entri").insert({
+      user_id: DB.aktif, kategori: "ujian_tingkat", status,
+      tanggal: val("f-tanggal") || hariIni(), catatan: val("f-catatan") || null,
+      supervisor_id: pembimbingId, rincian, lampiran
+    }).select().single();
+    if(error){ toast("Gagal menyimpan entri: " + error.message); return; }
+    DB.entries.push(entriKeApp(data));
+    draftBukti = [];
+    toast(status==="draft" ? "Tersimpan sebagai draf." : "Terkirim. Menunggu verifikasi supervisor.");
+    tab = "riwayat"; filterKat = "semua"; render();
+    return;
+  }
 }
 
 function ekspor(){
@@ -2585,6 +2634,8 @@ document.addEventListener("click", async ev => {
       };
       if(e.kategori === "ilmiah")
         payload.rincian = {jenis:e.jenis, judul:e.judul, peranIlmiah:e.peranIlmiah, nilai:e.nilai, penilaian:e.penilaian};
+      if(e.kategori === "ujianTingkat")
+        payload.rincian = {jenjang:e.jenjang, penilaian:e.penilaian};
       const { error } = await sb.from("entri").update(payload).eq("id", id);
       if(error){ toast("Gagal menyimpan verifikasi: " + error.message); return; }
     }
@@ -2684,6 +2735,7 @@ function render(){
     absensi:vAbsensi, pantau:vPantau, akun:vAkun, semester:vSemester, profil:vProfilSaya,
     cuti: (me().peran==="admin" || me().peran==="tenaga_pendidik") ? vCutiAdmin : vCuti,
     tesis: me().peran==="ppds" ? vTesis : vTesisPantau,
+    ujian: formUjianTingkat,
     rekap: pesertaDibuka ? vPesertaDetail : berandaAdmin
   }[tab] || vBeranda;
   document.getElementById("view").innerHTML = v() + vLightbox();
