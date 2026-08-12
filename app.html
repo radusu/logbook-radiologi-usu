@@ -1005,6 +1005,7 @@ const IKON_NAV = {
   rekap: `<rect x="4" y="12" width="3" height="8"/><rect x="10.5" y="7" width="3" height="13"/><rect x="17" y="15" width="3" height="5"/>`,
   cuti: `<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5h6"/>`,
   akun: `<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15 14.2c2.4.3 4 2 4 4.8"/>`,
+  peserta: `<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15 14.2c2.4.3 4 2 4 4.8"/>`,
   pengaturan: `<circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6"/>`,
   kasus: `<rect x="6" y="4.5" width="12" height="16" rx="1.5"/><rect x="9" y="3" width="6" height="3" rx="1"/><path d="M9 11h6M9 14.5h6"/>`,
   tindakan: `<path d="M3 12h4l2-6 4 12 2-6h6"/>`,
@@ -1016,7 +1017,7 @@ const IKON_NAV = {
 };
 function menu(){
   const u = me(), p = u.peran;
-  if(p === "supervisor") return [["beranda","Beranda"],["verifikasi","Verifikasi",pendingSaya().length],["pantau","Absensi"],["tesis","Tesis"],["semua","Semua Entri"]];
+  if(p === "supervisor") return [["beranda","Beranda"],["verifikasi","Verifikasi",pendingSaya().length],["peserta","Peserta"],["pantau","Absensi"],["tesis","Tesis"],["semua","Semua Entri"]];
   if(p === "tenaga_pendidik") return [["beranda","Beranda"],["rekap","Rekap Peserta"],["pantau","Absensi"],
     ["cuti","Cuti & Izin", cutiMenunggu().length],
     ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length]];
@@ -2105,6 +2106,59 @@ function vSemester(){
     Semester ditetapkan oleh Admin Program Studi.</p>`;
 }
 
+// Daftar peserta untuk supervisor (baca saja, tanpa kemampuan mengubah semester).
+function vDaftarPeserta(){
+  const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
+  return `<div class="card"><div class="card-h"><h2>Daftar Peserta</h2>
+    <span class="sub">${peserta.length} peserta aktif</span></div>
+    <div class="tw"><table>
+      <tr><th>Nama</th><th>Semester</th><th>Kasus</th><th>Tindakan</th><th>Ilmiah</th><th>Jaga</th></tr>
+      ${peserta.map(u=>{
+        const k = c => DB.entries.filter(e=>e.userId===u.id&&e.kategori===c&&e.status==="terverifikasi").length;
+        const ct = cutiAktif(u.id);
+        return `<tr><td><button class="tautan" data-act="bukaPeserta" data-id="${u.id}">${esc(u.nama)}</button>
+          <div class="muted" style="font-size:12.5px">${esc(u.nim)}</div></td>
+        <td>${u.peran==="ppds" ? (semesterKini(u)!=null?"Semester "+semesterKini(u):"—") : esc(u.ket)}
+          ${ct?`<div><span class="pill p-tunggu">${esc(ct.jenis)}</span></div>`:""}</td>
+        <td class="mono">${k("kasus")}</td><td class="mono">${k("tindakan")}</td>
+        <td class="mono">${k("ilmiah")}</td><td class="mono">${k("jaga")}</td></tr>`;
+      }).join("")}
+    </table></div></div>`;
+}
+// Profil peserta untuk supervisor — data diri & riwayat pendidikan hanya tampil (baca saja),
+// tidak ada formulir pengaturan semester seperti pada versi Admin.
+function vPesertaProfil(){
+  const u = DB.users.find(x=>x.id===pesertaDibuka);
+  if(!u) return `<div class="empty"><b>Peserta tidak ditemukan</b></div>`;
+  const aktif = cutiAktif(u.id);
+  const riwayat = u.riwayatPendidikan || [];
+  return `<button class="btn btn-o btn-s" data-act="tutupPeserta" style="margin-bottom:14px">&larr; Kembali ke daftar</button>
+  ${aktif?`<div class="banner" style="border-left-color:var(--amber); margin-bottom:14px">
+    <b>Sedang ${esc(aktif.jenis.toLowerCase())}</b> sampai ${tglID(aktif.selesai)}.</div>`:""}
+  <div class="grid g-side">
+    <div class="card"><div class="card-h">
+      <div><span class="eyebrow">${esc(u.nim)}</span><h2>${esc(u.nama)}</h2></div>
+      <span class="sub">${esc(labelSemester(u))}</span></div>
+      <div class="card-b" style="padding:0">${tabelSemester(u)}</div></div>
+    <div>
+      <div class="card" style="margin-bottom:14px"><div class="card-h"><h2>Data diri</h2></div>
+        <div class="card-b"><dl class="dl">
+          <div><dt>Email</dt><dd>${esc(u.email)}</dd></div>
+          <div><dt>NIM / NPM</dt><dd>${esc(u.nim)}</dd></div>
+          <div><dt>NIK</dt><dd>${esc(u.nik||"—")}</dd></div>
+          <div><dt>Tempat, tanggal lahir</dt><dd>${esc(u.tempatLahir||"—")}${u.tanggalLahir?", "+tglID(u.tanggalLahir):""}</dd></div>
+          <div><dt>Keterangan</dt><dd>${esc(u.ket)}</dd></div>
+        </dl></div></div>
+      <div class="card"><div class="card-h"><h2>Riwayat pendidikan</h2></div>
+        <div class="card-b">
+          ${riwayat.length ? `<dl class="dl">${riwayat.map(r=>
+              `<div><dt>${esc(r.jenjang||"—")}</dt><dd>${esc(r.institusi||"—")}${r.tahun?" &middot; "+esc(r.tahun):""}</dd></div>`
+            ).join("")}</dl>`
+            : `<div class="empty"><b>Belum ada riwayat</b>Peserta belum mengisi riwayat pendidikan.</div>`}
+        </div></div>
+    </div>
+  </div>`;
+}
 function vPesertaDetail(){
   const u = DB.users.find(x=>x.id===pesertaDibuka);
   if(!u) return `<div class="empty"><b>Peserta tidak ditemukan</b></div>`;
@@ -2565,7 +2619,7 @@ document.addEventListener("click", async ev => {
     c.status = "ditolak"; c.penyetuju = DB.aktif; c.catatan = catatan;
     toast("Pengajuan ditolak."); render(); return;
   }
-  if(a==="bukaPeserta"){ pesertaDibuka = b.dataset.id; tab = "rekap"; render(); return; }
+  if(a==="bukaPeserta"){ pesertaDibuka = b.dataset.id; render(); return; }
   if(a==="tutupPeserta"){ pesertaDibuka = null; render(); return; }
   if(a==="simpanSemester"){
     const u = DB.users.find(x=>x.id===id);
@@ -2849,7 +2903,8 @@ function render(){
     cuti: (me().peran==="admin" || me().peran==="tenaga_pendidik") ? vCutiAdmin : vCuti,
     tesis: me().peran==="ppds" ? vTesis : vTesisPantau,
     ujian: formUjianTingkat,
-    rekap: pesertaDibuka ? vPesertaDetail : berandaAdmin
+    rekap: pesertaDibuka ? vPesertaDetail : berandaAdmin,
+    peserta: pesertaDibuka ? vPesertaProfil : vDaftarPeserta
   }[tab] || vBeranda;
   document.getElementById("view").innerHTML = v() + vLightbox();
   if(!lightbox) window.scrollTo({top:0, behavior:"instant"});
