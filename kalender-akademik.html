@@ -241,6 +241,15 @@ const LABEL_STATUS = {
   ditolak:   {l:"Ditolak",              bg:"#FBEAE7",           c:"var(--danger)"}
 };
 
+const LABEL_PELAKSANAAN = {
+  pending:    {l:"Terjadwal",         bg:"var(--line2)",      c:"var(--graphite)"},
+  terlaksana: {l:"Sudah Terlaksana",  bg:"var(--usu-soft)",   c:"var(--usu-deep)"},
+  reschedule: {l:"Reschedule",        bg:"var(--amber-soft)", c:"var(--amber)"}
+};
+
+// Ganti dengan username bot Telegram Anda sendiri (tanpa @), setelah dibuat lewat @BotFather.
+const TELEGRAM_BOT_USERNAME = "RadiologiFKUSU_BOT";
+
 const JENIS_KEGIATAN = [
   {v:"case_report",            l:"Case Report",                          k:"CR"},
   {v:"referat",                l:"Referat",                               k:"RF"},
@@ -425,6 +434,9 @@ document.addEventListener("change", e => {
   if(e.target && e.target.id === "j-presentan"){
     document.getElementById("wrap-presentan-lain").hidden = e.target.value !== "__lainnya__";
   }
+  if(e.target && e.target.dataset.actChange === "statusPelaksanaan"){
+    ubahStatusPelaksanaan(e.target.dataset.id, e.target.value);
+  }
 });
 
 async function muatProfilDanRender(userId){
@@ -522,6 +534,38 @@ async function muatJadwal(){
   daftarJadwal = data || [];
 }
 
+async function ubahStatusPelaksanaan(id, nilai){
+  const { error } = await sb.from("jadwal_akademik").update({ status_pelaksanaan: nilai }).eq("id", id);
+  if(error){ toast("Gagal menyimpan: " + error.message); return; }
+  toast("Status pelaksanaan diperbarui.");
+  await muatJadwal();
+  render();
+}
+
+async function putuskanTelegram(){
+  if(!confirm("Putuskan sambungan Telegram? Anda tidak akan menerima pengingat lagi sampai disambungkan ulang.")) return;
+  const { error } = await sb.from("profil").update({ telegram_chat_id: null }).eq("id", profilSaya.id);
+  if(error){ toast("Gagal memutuskan sambungan: " + error.message); return; }
+  profilSaya.telegram_chat_id = null;
+  toast("Sambungan Telegram diputuskan.");
+  render();
+}
+
+function kartuTelegram(){
+  const tersambung = !!profilSaya.telegram_chat_id;
+  const deepLink = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${profilSaya.id}`;
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Reminder Telegram</h2></div>
+    <div class="card-b">
+      ${tersambung
+        ? `<p style="margin:0 0 12px">Telegram Anda sudah tersambung — Anda akan mendapat pengingat otomatis untuk setiap kegiatan (H-1 malam dan pagi hari-H).</p>
+           <button class="btn btn-o btn-s" id="btn-putus-telegram">Putuskan sambungan</button>`
+        : `<p style="margin:0 0 12px">Sambungkan akun Telegram Anda supaya dapat pengingat otomatis setiap ada kegiatan baru.</p>
+           <a class="btn btn-p" href="${deepLink}" target="_blank" rel="noopener">Sambungkan Telegram</a>`}
+    </div>
+  </div>`;
+}
+
 function formAjukan(){
   return `<div class="card" style="margin-bottom:16px">
     <div class="card-h"><h2>Ajukan kegiatan baru</h2></div>
@@ -566,7 +610,9 @@ function fmtJam(t){
 function barisJadwal(j){
   const bisaHapus = profilSaya && (profilSaya.id === j.user_id || profilSaya.peran === "admin");
   const bisaTinjau = bisaModerasi() && j.status === "menunggu";
+  const bisaUbahPelaksanaan = j.status === "disetujui" && profilSaya && (profilSaya.id === j.user_id || bisaModerasi());
   const st = LABEL_STATUS[j.status];
+  const sp = LABEL_PELAKSANAAN[j.status_pelaksanaan || "pending"];
   const jenis = kegiatanByValue(j.jenis_kegiatan);
   const zoomAman = j.link_zoom && /^https?:\/\//i.test(j.link_zoom) ? j.link_zoom : null;
   return `<div class="baris-jadwal">
@@ -575,6 +621,8 @@ function barisJadwal(j){
         ${j.jam ? `<span class="muted" style="font-family:var(--f-mono); font-size:12px">${fmtJam(j.jam)}</span>` : ""}
         <b>${jenis ? esc(jenis.l) : esc(j.judul_kegiatan || "Kegiatan")}</b>
         ${j.status !== "disetujui" ? `<span class="pill" style="background:${st.bg}; color:${st.c}">${st.l}</span>` : ""}
+        ${j.status === "disetujui" && j.status_pelaksanaan && j.status_pelaksanaan !== "pending"
+          ? `<span class="pill" style="background:${sp.bg}; color:${sp.c}">${sp.l}</span>` : ""}
       </div>
       ${jenis && j.judul_kegiatan ? `<div style="font-size:13.5px; margin-top:2px">${esc(j.judul_kegiatan)}</div>` : ""}
       <div class="muted" style="font-size:12.5px; margin-top:2px">
@@ -583,6 +631,14 @@ function barisJadwal(j){
       </div>
       ${j.keterangan ? `<div style="margin-top:5px; font-size:13.5px">${esc(j.keterangan)}</div>` : ""}
       ${j.status === "ditolak" && j.catatan_admin ? `<div style="margin-top:5px; font-size:13px; color:var(--danger)">Catatan: ${esc(j.catatan_admin)}</div>` : ""}
+      ${bisaUbahPelaksanaan ? `
+      <div style="margin-top:8px">
+        <select data-act-change="statusPelaksanaan" data-id="${j.id}" style="font-size:12.5px; padding:4px 7px; border:1px solid var(--line); border-radius:var(--r); background:#fff">
+          <option value="pending" ${(!j.status_pelaksanaan || j.status_pelaksanaan==="pending")?"selected":""}>Terjadwal</option>
+          <option value="terlaksana" ${j.status_pelaksanaan==="terlaksana"?"selected":""}>Sudah Terlaksana</option>
+          <option value="reschedule" ${j.status_pelaksanaan==="reschedule"?"selected":""}>Reschedule</option>
+        </select>
+      </div>` : ""}
     </div>
     <div style="display:flex; gap:6px; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end">
       ${zoomAman ? `<a class="btn btn-o btn-s" href="${esc(zoomAman)}" target="_blank" rel="noopener">Buka Zoom</a>` : ""}
@@ -666,6 +722,7 @@ function render(){
   const moderasi = bisaModerasi();
   const jumlahMenunggu = daftarJadwal.filter(j => j.status === "menunggu").length;
   document.getElementById("isi").innerHTML = `
+    ${kartuTelegram()}
     ${bisaUnggah() ? formAjukan() : ""}
     ${moderasi ? `<div class="tabs-admin">
       <button data-act="tabAdminKalender" aria-pressed="${tabAdmin!=="menunggu"}">Kalender</button>
@@ -760,6 +817,7 @@ document.addEventListener("click", ev => {
   const authtab = ev.target.closest("[data-authtab]");
   if(authtab){ modeAuth = authtab.dataset.authtab; tampilkanLogin(); return; }
   if(ev.target && ev.target.id === "btn-ajukan"){ ajukanKegiatan(); return; }
+  if(ev.target && ev.target.id === "btn-putus-telegram"){ putuskanTelegram(); return; }
   const b = ev.target.closest("[data-act]");
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
