@@ -422,6 +422,9 @@ async function daftarAkun(){
 
 document.addEventListener("change", e => {
   if(e.target && e.target.id === "d-peran"){ daftarPeranKalender = e.target.value; tampilkanLogin(); }
+  if(e.target && e.target.id === "j-presentan"){
+    document.getElementById("wrap-presentan-lain").hidden = e.target.value !== "__lainnya__";
+  }
 });
 
 async function muatProfilDanRender(userId){
@@ -535,8 +538,11 @@ function formAjukan(){
       <div class="field"><label>Nama presentan</label>
         <select id="j-presentan">
           <option value="">Pilih presentan</option>
-          ${daftarPresentan.map(p => `<option value="${esc(p.nama)}" ${p.id===profilSaya.id?"selected":""}>${esc(p.nama)}</option>`).join("")}
+          ${daftarPresentan.map(p => `<option value="${esc(p.nama)}" ${p.id===profilSaya.id?"selected":""}>${esc(p.nama)}${p.id===profilSaya.id?" (Anda)":""}</option>`).join("")}
+          <option value="__lainnya__">Lainnya (ketik nama)</option>
         </select></div>
+      <div class="field" id="wrap-presentan-lain" hidden><label>Nama presentan (ketik manual)</label>
+        <input type="text" id="j-presentan-lain" placeholder="Contoh: dr. Nama Presentan"></div>
       <div class="field"><label>Judul / topik (opsional)</label>
         <input type="text" id="j-judul" placeholder="Contoh: Pneumonia pada anak"></div>
       <div class="field"><label>Nama pembimbing</label>
@@ -687,7 +693,10 @@ async function ajukanKegiatan(){
   const tanggal = document.getElementById("j-tanggal").value;
   const jam = document.getElementById("j-jam").value;
   const jenis = document.getElementById("j-jenis").value;
-  const presentan = document.getElementById("j-presentan").value;
+  let presentan = document.getElementById("j-presentan").value;
+  if(presentan === "__lainnya__"){
+    presentan = document.getElementById("j-presentan-lain").value.trim();
+  }
   const judul = document.getElementById("j-judul").value.trim();
   const pembimbing = document.getElementById("j-pembimbing").value.trim();
   const zoom = document.getElementById("j-zoom").value.trim();
