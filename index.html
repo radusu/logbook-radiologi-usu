@@ -47,11 +47,11 @@ a{color:var(--usu)}
 }
 .btn-masuk:hover{background:#0c8449}
 .btn-masuk-nav{
-  display:inline-block; background:var(--usu); color:#fff!important; text-decoration:none;
-  font-family:var(--f-disp); font-weight:600; font-size:13.5px;
-  padding:8px 16px; border-radius:var(--r); margin:8px 0 8px auto; white-space:nowrap; flex:0 0 auto;
+  color:var(--graphite); text-decoration:none; white-space:nowrap; flex:0 0 auto; margin-left:auto;
+  font-family:var(--f-disp); font-weight:600; font-size:14px;
+  padding:13px 14px; border-bottom:2px solid transparent;
 }
-.btn-masuk-nav:hover{background:#0c8449}
+.btn-masuk-nav:hover{color:var(--ink)}
 
 .stats{max-width:760px; margin:0 auto; padding:28px 24px 0;
   display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
@@ -98,6 +98,11 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 }
 .navbar-profil button:hover{color:var(--ink)}
 .navbar-profil button[aria-current="true"]{color:var(--usu-deep); border-bottom-color:var(--usu)}
+.navbar-profil-tabs a{
+  color:var(--graphite); text-decoration:none; padding:13px 14px; white-space:nowrap;
+  font-family:var(--f-disp); font-size:14px; font-weight:600; border-bottom:2px solid transparent;
+}
+.navbar-profil-tabs a:hover{color:var(--ink)}
 .tabview[hidden]{display:none}
 .placeholder-bab{background:var(--card); border:1px dashed var(--line); border-radius:var(--r); padding:40px 24px; text-align:center; color:var(--graphite)}
 .placeholder-bab b{display:block; font-family:var(--f-disp); font-size:16px; color:var(--ink2); margin-bottom:6px}
@@ -119,8 +124,9 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
       <button data-babtab="staf">Profil Staf</button>
       <button data-babtab="berita">Berita &amp; Pengumuman</button>
       <button data-babtab="struktur">Struktur &amp; Kontak</button>
+      <a href="kalender-akademik.html">Kalender Akademik</a>
     </div>
-    <a class="btn-masuk-nav" href="app.html">Masuk ke Logbook</a>
+    <a class="btn-masuk-nav" href="app.html">Logbook</a>
   </div>
 </nav>
 
