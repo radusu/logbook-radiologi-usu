@@ -2965,6 +2965,21 @@ setInterval(() => {
 (async function init(){
   DB = { aktif: null, users: [], entries: [], tesis: [], cuti: [], lokasi: [], sesiLogin: false };
 
+  // Supabase mengirim pesan error lewat fragment URL (#error=...) kalau tautan
+  // verifikasi/reset kata sandi sudah kedaluwarsa, sudah dipakai, atau tidak
+  // valid. Tanpa ini, halaman diam-diam kembali ke layar Masuk tanpa
+  // penjelasan apa pun ke pengguna.
+  if(window.location.hash.includes("error=")){
+    const param = new URLSearchParams(window.location.hash.slice(1));
+    const kode = param.get("error_code");
+    if(kode === "otp_expired"){
+      toast("Tautan sudah kedaluwarsa atau sudah pernah dipakai. Silakan minta tautan baru lewat \"Lupa kata sandi?\".");
+    } else {
+      toast("Tautan tidak valid: " + (param.get("error_description") || kode || "kesalahan tidak diketahui").replace(/\+/g, " "));
+    }
+    history.replaceState(null, "", window.location.pathname);
+  }
+
   // Identitas akun: sungguhan lewat Supabase Auth + tabel profil.
   sb.auth.onAuthStateChange(async (event, session) => {
     if(event === "PASSWORD_RECOVERY"){
