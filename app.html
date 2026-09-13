@@ -36,15 +36,16 @@ button,input,select,textarea{font-family:inherit; font-size:inherit; color:inher
   background:var(--ink); color:#fff; position:sticky; top:0; z-index:40;
   border-bottom:1px solid #000;
 }
-.topbar-in{max-width:1180px; margin:0 auto; padding:10px 16px; display:flex; gap:14px; align-items:center; flex-wrap:wrap}
-.brand{display:flex; align-items:center; gap:10px; margin-right:auto}
-.jam-hidup{font-family:var(--f-mono); font-size:11px; letter-spacing:.03em; color:var(--usu-soft); background:rgba(255,255,255,.08); border-radius:99px; padding:5px 12px; white-space:nowrap}
-@media (max-width:760px){.jam-hidup{display:none}}
+.topbar-in{max-width:1180px; margin:0 auto; padding:10px 16px; display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+.brand{display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto}
+.brand span{min-width:0}
+.jam-hidup{font-family:var(--f-mono); font-size:11px; letter-spacing:.03em; color:var(--usu-soft); background:rgba(255,255,255,.08); border-radius:99px; padding:5px 12px; white-space:nowrap; flex:0 0 auto}
+@media (max-width:880px){.jam-hidup{display:none}}
 .wedge-mark{display:flex; height:22px; border:1px solid #3A444C}
 .wedge-mark i{width:5px; display:block}
 .brand b{font-family:var(--f-disp); font-weight:700; font-size:16px; letter-spacing:.01em; display:block; line-height:1.1}
-.brand small{font-family:var(--f-mono); font-size:9.5px; color:#8A959D; letter-spacing:.14em; text-transform:uppercase; display:block}
-.who{display:flex; align-items:center; gap:8px}
+.brand small{font-family:var(--f-mono); font-size:9.5px; color:#8A959D; letter-spacing:.14em; text-transform:uppercase; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.who{display:flex; align-items:center; gap:10px; flex:0 0 auto}
 .who label{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:#8A959D}
 .who select{
   background:#1B2229; color:#fff; border:1px solid #38424A; border-radius:var(--r);
@@ -376,9 +377,9 @@ tr:last-child td{border-bottom:0}
     <div class="brand">
       <img id="logoUSU" class="logo" alt="Lambang Universitas Sumatera Utara">
       <span><b>Logbook Radiologi</b><small>Departemen - Program Studi Radiologi &middot; Fakultas Kedokteran Universitas Sumatera Utara</small></span>
-      <time class="jam-hidup" id="jamHidup" aria-hidden="true"></time>
     </div>
     <div class="who">
+      <time class="jam-hidup" id="jamHidup" aria-hidden="true"></time>
       <div class="akun-dropdown">
         <button class="akun-tombol" id="siapaAktif" data-act="toggleAkunMenu"></button>
         <div class="akun-menu" id="akunMenu" hidden>
@@ -1262,6 +1263,13 @@ function jamHidupTick(){
   const el = document.getElementById("jamHidup");
   if(el) el.textContent = teksJamHidup();
 }
+const GELAR_DEPAN = new Set(["dr.","dr","drg.","drg","prof.","prof"]);
+function namaDepan(nama){
+  const kata = String(nama || "").trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while(i < kata.length - 1 && GELAR_DEPAN.has(kata[i].toLowerCase())) i++;
+  return kata[i] || nama || "";
+}
 function vBeranda(){
   const u = me();
   if(u.peran === "supervisor") return berandaSupervisor();
@@ -1290,7 +1298,7 @@ function vBeranda(){
   <div class="grid g-side">
     <div class="card">
       <div class="card-h" style="background:var(--usu-soft); border-bottom-color:rgba(4,81,42,.12)">
-        <div><span class="eyebrow" style="color:var(--usu-deep)">${sapaWaktu()}</span><h2 style="color:var(--usu-deep)">Halo, ${esc(u.nama.split(" ")[0])}</h2></div>
+        <div><span class="eyebrow" style="color:var(--usu-deep)">${sapaWaktu()}</span><h2 style="color:var(--usu-deep)">Halo, ${esc(namaDepan(u.nama))}</h2></div>
         <span class="sub mono" style="color:var(--usu-deep)">${esc(u.nim)} &middot; ${esc(u.ket)}</span>
       </div>
       <div class="card-b">
@@ -1331,7 +1339,7 @@ function berandaSupervisor(){
   const p = pendingSaya();
   const dibimbing = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
   return `
-  <div style="margin-bottom:14px"><span class="eyebrow">${sapaWaktu()}</span><h2 style="margin-top:2px">Halo, ${esc(u.nama.split(" ")[0])}</h2></div>
+  <div style="margin-bottom:14px"><span class="eyebrow">${sapaWaktu()}</span><h2 style="margin-top:2px">Halo, ${esc(namaDepan(u.nama))}</h2></div>
   <div class="grid g3" style="margin-bottom:16px">
     <div class="stat"><b style="color:var(--amber)">${p.length}</b><span>Menunggu verifikasi</span></div>
     <div class="stat"><b>${DB.entries.filter(e=>e.verifikator===DB.aktif&&e.status==="terverifikasi").length}</b><span>Sudah diverifikasi</span></div>
@@ -1351,7 +1359,7 @@ function berandaAdmin(){
   const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
   const E = DB.entries;
   return `
-  <div style="margin-bottom:14px"><span class="eyebrow">${sapaWaktu()}</span><h2 style="margin-top:2px">Halo, ${esc(u.nama.split(" ")[0])}</h2></div>
+  <div style="margin-bottom:14px"><span class="eyebrow">${sapaWaktu()}</span><h2 style="margin-top:2px">Halo, ${esc(namaDepan(u.nama))}</h2></div>
   <div class="grid g3" style="margin-bottom:16px">
     <div class="stat"><b>${peserta.length}</b><span>Peserta terdaftar</span></div>
     <div class="stat"><b>${E.length}</b><span>Total entri</span></div>
