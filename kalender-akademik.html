@@ -249,6 +249,8 @@ const LABEL_PELAKSANAAN = {
 
 // Ganti dengan username bot Telegram Anda sendiri (tanpa @), setelah dibuat lewat @BotFather.
 const TELEGRAM_BOT_USERNAME = "RadiologiFKUSU_BOT";
+// Ubah ke true setelah bot Telegram siap (webhook, env var, cron reminder sudah aktif).
+const FITUR_TELEGRAM_AKTIF = false;
 
 const JENIS_KEGIATAN = [
   {v:"case_report",            l:"Case Report",                          k:"CR"},
@@ -571,11 +573,11 @@ function kartuLangganan(){
   const urlHttps = window.location.origin + "/kalender.ics";
   const urlWebcal = urlHttps.replace(/^https?:\/\//, "webcal://");
   return `<div class="card" style="margin-bottom:16px">
-    <div class="card-h"><h2>Langganan di Kalender iPhone / Google</h2></div>
+    <div class="card-h"><h2>Langganan Kalender</h2></div>
     <div class="card-b">
       <p style="margin:0 0 12px">Sambungkan sekali, kegiatan yang sudah disetujui akan otomatis muncul di aplikasi Kalender Anda dan selalu ter-update — tidak perlu buka halaman ini lagi.</p>
-      <a class="btn btn-p" href="${urlWebcal}" style="display:inline-block; text-decoration:none">Tambahkan ke Kalender iPhone</a>
-      <div class="field" style="margin-top:12px"><label>Atau salin alamat ini (Google Calendar / Outlook)</label>
+      <a class="btn btn-p" href="${urlWebcal}" style="display:inline-block; text-decoration:none">Tambahkan Kalender Ini ke HP Anda</a>
+      <div class="field" style="margin-top:12px"><label>Atau salin alamat ini dan tempel di aplikasi Kalender Anda (Google Calendar, Outlook, dll)</label>
         <input type="text" readonly value="${urlHttps}" id="langganan-url" onclick="this.select()"></div>
       <button class="btn btn-o btn-s" id="btn-salin-langganan" style="margin-top:8px">Salin alamat</button>
     </div>
@@ -749,7 +751,7 @@ function render(){
   const moderasi = bisaModerasi();
   const jumlahMenunggu = daftarJadwal.filter(j => j.status === "menunggu").length;
   document.getElementById("isi").innerHTML = `
-    ${kartuTelegram()}
+    ${FITUR_TELEGRAM_AKTIF ? kartuTelegram() : ""}
     ${kartuLangganan()}
     ${bisaUnggah() ? formAjukan() : ""}
     ${moderasi ? `<div class="tabs-admin">
