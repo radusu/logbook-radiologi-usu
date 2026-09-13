@@ -33,7 +33,7 @@ a{color:var(--usu)}
 .brand b{font-family:var(--f-disp); font-weight:700; font-size:17px; display:block; line-height:1.15}
 .brand small{font-family:var(--f-mono); font-size:9.5px; color:#8A959D; letter-spacing:.14em; text-transform:uppercase; display:block}
 
-.hero{background:var(--ink)}
+.hero{background:linear-gradient(165deg, var(--ink) 0%, var(--usu-deep) 145%)}
 .hero-in{max-width:760px; margin:0 auto; padding:56px 24px 48px; text-align:center; color:#fff}
 .hero img{width:80px; height:80px; margin-bottom:20px}
 .hero h1{font-size:28px; margin-bottom:8px; color:#fff}
@@ -82,8 +82,10 @@ section h2{font-size:22px; margin:6px 0 16px}
 .peta-p{font-size:14px; color:var(--graphite); margin:-6px 0 16px}
 
 .fitur{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px}
-.fitur .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:18px}
-.fitur .card b{font-family:var(--f-disp); font-size:14.5px; display:block; margin-bottom:6px}
+.fitur .card{border:1px solid transparent; border-radius:var(--r); padding:18px; background:var(--usu-soft)}
+.fitur .card:nth-child(even){background:var(--amber-soft)}
+.fitur .card b{font-family:var(--f-disp); font-size:14.5px; display:block; margin-bottom:6px; color:var(--usu-deep)}
+.fitur .card:nth-child(even) b{color:var(--amber)}
 .fitur .card span{color:var(--graphite); font-size:13.5px}
 
 footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11px; color:var(--mist)}
@@ -6824,7 +6826,7 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 </script>
 
 
-<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.7.0</footer>
+<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.8.0</footer>
 <script>
 document.querySelectorAll(".num").forEach(el => {
   const target = +el.dataset.target, durasi = 1200, mulai = performance.now();
