@@ -372,7 +372,7 @@ tr:last-child td{border-bottom:0}
 
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <main id="view"></main>
-<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.10.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.11.0</footer>
 <div class="rail-tabs">
   <a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
   <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
@@ -447,6 +447,7 @@ let tahapAktif = "Proposal Tesis MKK";   // nilai awal; daftar lengkap ada di TA
 let draftTesisPDF = null;
 let draftNilai = {};                // nilai yang sedang diisi konsulen, per entri
 let draftCatatanNilai = {};         // catatan pembimbing yang sedang ditulis
+let editNilaiId = null;             // id entri yang nilainya sedang diubah Admin
 let akunMenuTerbuka = false;        // dropdown nama akun di pojok kanan atas
 let draftRiwayat = null;            // riwayat pendidikan yang sedang disunting di Profil Saya
 let pengajuanSemesterSaya = [];     // pengajuan perbaikan semester milik akun aktif
@@ -837,7 +838,7 @@ function vAkun(){
   const aktif = DB.users.filter(u => u.statusAkun === "aktif");
   const ditolak = DB.users.filter(u => u.statusAkun === "ditolak");
   const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin"};
-  const bisaUbahPeran = me().peran === "admin";
+  const bisaUbahPeran = me().peran === "admin" && me().superAdmin;
   const kartu = u => `<div class="entry">
     <div class="entry-top">
       <span class="ava" style="background:${warnaAva(u.nama)}">${esc(u.nama.replace(/^dr\.\s*/,"").charAt(0))}</span>
@@ -1847,7 +1848,7 @@ function kartuEntri(e, tampilPemilik){
     <h4>${esc(judulEntri(e))}</h4>
     <div class="meta">${esc(metaEntri(e))}</div>
     ${e.kesan?`<div class="meta" style="margin-top:5px">Kesan: ${esc(e.kesan)}</div>`:""}
-    ${e.penilaian ? tampilNilai(e.penilaian) : ""}
+    ${e.penilaian && editNilaiId!==e.id ? tampilNilai(e.penilaian) : ""}
     ${(e.bukti && e.bukti.length) ? petakBukti(e.bukti, e.id) : ""}
     ${e.catatanVerifikator?`<div class="note"><b>Catatan supervisor:</b> ${esc(e.catatanVerifikator)}</div>`:""}
     ${bisaEdit?`<div class="acts">
@@ -1855,6 +1856,14 @@ function kartuEntri(e, tampilPemilik){
       <button class="btn btn-d btn-s" data-act="hapus" data-id="${e.id}">Hapus</button></div>`:""}
     ${bisaSuperHapus?`<div class="acts">
       <button class="btn btn-d btn-s" data-act="hapus" data-id="${e.id}">Hapus entri (superadmin)</button></div>`:""}
+    ${(me().peran==="admin" && butuhNilai(e)) ? (
+      editNilaiId===e.id
+        ? `${lembarPenilaian(e)}<div class="acts">
+             <button class="btn btn-p btn-s" data-act="simpanNilai" data-id="${e.id}">Simpan nilai</button>
+             <button class="btn btn-o btn-s" data-act="batalUbahNilai">Batal</button>
+           </div>`
+        : `<div class="acts"><button class="btn btn-o btn-s" data-act="ubahNilai" data-id="${e.id}">${e.penilaian?"Ubah nilai":"Isi nilai"}</button></div>`
+    ) : ""}
   </div>`;
 }
 
@@ -2872,6 +2881,43 @@ document.addEventListener("click", async ev => {
     if(detailBuka) sudahDibaca.add(id);
     render();
   }
+  else if(a==="ubahNilai"){
+    const e = cari();
+    draftNilai[id] = e.penilaian ? e.penilaian.total : (e.nilai || "");
+    draftCatatanNilai[id] = e.penilaian ? (e.penilaian.umpanBalik || "") : "";
+    editNilaiId = id; render();
+  }
+  else if(a==="batalUbahNilai"){
+    editNilaiId = null; render();
+  }
+  else if(a==="simpanNilai"){
+    const e = cari();
+    const v = draftNilai[id];
+    if(!nilaiLengkap(v)){ toast("Isi nilai akhir dulu."); return; }
+    const n = Number(v);
+    e.penilaian = {
+      total:n, huruf:hurufMutu(n), penilai:DB.aktif,
+      waktu:new Date().toISOString(),
+      umpanBalik:(draftCatatanNilai[id]||"").trim()
+    };
+    e.nilai = n.toFixed(1);
+    e.status = "terverifikasi";
+    e.verifikator = DB.aktif;
+    e.waktuVerifikasi = e.penilaian.waktu;
+    if(e.asliSupabase){
+      const payload = { status:"terverifikasi", verifikator_id:DB.aktif, waktu_verifikasi:e.waktuVerifikasi };
+      if(e.kategori === "ilmiah")
+        payload.rincian = {jenis:e.jenis, judul:e.judul, peranIlmiah:e.peranIlmiah, nilai:e.nilai, penilaian:e.penilaian};
+      if(e.kategori === "ujianTingkat")
+        payload.rincian = {jenjang:e.jenjang, penilaian:e.penilaian};
+      const { error } = await sb.from("entri").update(payload).eq("id", id);
+      if(error){ toast("Gagal menyimpan nilai: " + error.message); return; }
+    }
+    delete draftNilai[id]; delete draftCatatanNilai[id];
+    editNilaiId = null;
+    toast("Nilai tersimpan.");
+    render();
+  }
   else if(a==="setuju"){
     if(!sudahDibaca.has(id)){ toast("Buka rincian lengkap dulu."); return; }
     const e=cari();
@@ -3054,6 +3100,7 @@ setInterval(() => {
       await muatProfilAktif(session.user.id);
     } else {
       DB.users = []; DB.aktif = null; DB.sesiLogin = false;
+      editNilaiId = null;
     }
     render();
   });
