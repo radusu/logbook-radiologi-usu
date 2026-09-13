@@ -327,26 +327,25 @@ tr:last-child td{border-bottom:0}
   padding:7px 16px; text-align:center;
   font-family:var(--f-mono); font-size:10.5px; color:#C7CDD1; letter-spacing:.04em;
 }
-.rail-beranda{
+.rail-tabs{
   position:fixed; right:0; top:50%; transform:translateY(-50%); z-index:70;
-  background:var(--ink); color:#fff; text-decoration:none;
+  display:flex; flex-direction:column;
+}
+.rail-tabs a{
+  color:#fff; text-decoration:none;
   font-family:var(--f-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
-  padding:16px 8px; border-radius:var(--r) 0 0 var(--r); border:1px solid #000; border-right:0;
+  padding:16px 8px; border:1px solid #000; border-right:0; border-bottom:0;
   writing-mode:vertical-rl; text-orientation:mixed;
   box-shadow:-4px 0 14px rgba(0,0,0,.2);
 }
+.rail-tabs a:last-child{border-bottom:1px solid #000}
+.rail-tabs a:first-child{border-radius:var(--r) 0 0 0}
+.rail-tabs a:last-child{border-radius:0 0 0 var(--r)}
+.rail-beranda{background:var(--ink)}
 .rail-beranda:hover{background:#1B2229}
-@media (max-width:640px){.rail-beranda{padding:12px 6px; font-size:10px}}
-.rail-kalender{
-  position:fixed; right:0; top:calc(50% - 64px); transform:translateY(-50%); z-index:70;
-  background:var(--usu); color:#fff; text-decoration:none;
-  font-family:var(--f-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
-  padding:16px 8px; border-radius:var(--r) 0 0 var(--r); border:1px solid #000; border-right:0;
-  writing-mode:vertical-rl; text-orientation:mixed;
-  box-shadow:-4px 0 14px rgba(0,0,0,.2);
-}
+.rail-kalender{background:var(--usu)}
 .rail-kalender:hover{background:#0c8449}
-@media (max-width:640px){.rail-kalender{padding:12px 6px; font-size:10px}}
+@media (max-width:640px){.rail-tabs a{padding:12px 6px; font-size:10px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 @media print{.topbar,.nav,.acts,.btn{display:none!important} body{background:#fff}}
 </style>
@@ -373,9 +372,11 @@ tr:last-child td{border-bottom:0}
 
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <main id="view"></main>
-<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.9.0</footer>
-<a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
-<a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.10.0</footer>
+<div class="rail-tabs">
+  <a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
+  <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -498,8 +499,11 @@ const KEGIATAN_ABSEN = ["Dinas pagi","Dinas sore","Jaga malam","Jaga hari libur"
 const pill = s => `<span class="pill ${STATUS[s].c}">${STATUS[s].l}</span>`;
 
 const entriSaya = () => DB.entries.filter(e => e.userId === DB.aktif);
+// Admin melihat SEMUA entri yang menunggu (konsulen belum disosialisasikan,
+// jadi belum tentu entrinya punya supervisor_id yang jelas). Supervisor
+// hanya melihat entri yang memang ditujukan ke dirinya.
 const pendingSaya = () => DB.entries.filter(e => e.status === "menunggu" &&
-  (e.supervisor === DB.aktif || e.pembimbing === DB.aktif));
+  (me().peran === "admin" || e.supervisor === DB.aktif));
 
 /* ============ 0b. HALAMAN MASUK ============ */
 let modeLogin = "masuk";      // "masuk", "daftar", atau "lupa"
@@ -546,7 +550,8 @@ async function muatProfilAktif(userId){
   if(p.peran === "ppds") await amanMuat(muatPengajuanSemesterSaya);
   if(p.peran === "admin") await amanMuat(muatPengajuanSemesterMenunggu);
   if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatEntriSaya);
-  if(p.peran === "supervisor" || (p.peran === "admin" && p.superAdmin)) await amanMuat(muatEntriUntukVerifikasi);
+  if(p.peran === "supervisor") await amanMuat(muatEntriUntukVerifikasi);
+  if(p.peran === "admin") await amanMuat(muatSemuaEntri);
 
   await amanMuat(muatLokasi);
   if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatAbsensiSaya);
@@ -604,11 +609,20 @@ async function muatEntriSaya(){
   gabungEntri(data);
 }
 
-// Ambil entri yang menunggu diverifikasi oleh akun aktif (supervisor, atau
-// admin yang juga ditandai superadmin).
+// Ambil entri yang menunggu diverifikasi oleh supervisor yang bersangkutan.
 async function muatEntriUntukVerifikasi(){
   const { data, error } = await sb.from("entri").select("*").eq("supervisor_id", DB.aktif);
   if(error){ toast("Gagal memuat entri yang menunggu verifikasi."); return; }
+  gabungEntri(data);
+}
+
+// Admin melihat SEMUA entri siapa pun, status apa pun -- dipakai untuk tab
+// "Verifikasi" dan "Semua Entri". Konsulen belum disosialisasikan, jadi
+// banyak entri belum punya supervisor_id yang jelas; Admin perlu bisa
+// meninjau semuanya, bukan hanya yang kebetulan ditujukan ke akunnya.
+async function muatSemuaEntri(){
+  const { data, error } = await sb.from("entri").select("*");
+  if(error){ toast("Gagal memuat semua entri."); return; }
   gabungEntri(data);
 }
 
@@ -1067,7 +1081,7 @@ function menu(){
       ["cuti","Cuti & Izin", cutiMenunggu().length],["tesis","Tesis"],
       ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length + pengajuanSemesterMenunggu.length],
       ["semua","Semua Entri"],["pengaturan","Pengaturan"]];
-    if(u.superAdmin) dasar.splice(1, 0, ["verifikasi","Verifikasi", pendingSaya().length]);
+    dasar.splice(1, 0, ["verifikasi","Verifikasi", pendingSaya().length]);
     return dasar;
   }
   return [["beranda","Beranda"],["absensi","Absensi"],["kasus","Kasus"],["tindakan","Tindakan"],["ilmiah","Ilmiah"],["jaga","Jaga & Stase"],["semester","Rekap Semester"]]
