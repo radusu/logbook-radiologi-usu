@@ -107,6 +107,17 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 .placeholder-bab{background:var(--card); border:1px dashed var(--line); border-radius:var(--r); padding:40px 24px; text-align:center; color:var(--graphite)}
 .placeholder-bab b{display:block; font-family:var(--f-disp); font-size:16px; color:var(--ink2); margin-bottom:6px}
 .bab-halaman{max-width:900px; margin:0 auto; padding:48px 24px 60px}
+.konten-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px}
+.konten-kartu{background:var(--card); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; box-shadow:0 6px 18px rgba(16,20,24,.06)}
+.konten-kartu img{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--paper)}
+.konten-kartu .isi{padding:14px}
+.konten-kartu b{font-family:var(--f-disp); font-size:15px; display:block; margin-bottom:2px}
+.konten-kartu .sub{color:var(--usu-deep); font-size:12.5px; display:block; margin-bottom:6px}
+.konten-kartu p{color:var(--graphite); font-size:13.5px; margin:0; white-space:pre-line}
+.konten-berita{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:18px; margin-bottom:14px}
+.konten-berita b{font-family:var(--f-disp); font-size:15.5px; display:block; margin-bottom:4px}
+.konten-berita .sub{color:var(--mist); font-family:var(--f-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; display:block; margin-bottom:8px}
+.konten-berita p{color:var(--ink2); font-size:14px; margin:0; white-space:pre-line}
 </style>
 </head>
 <body>
@@ -122,6 +133,7 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
     <div class="navbar-profil-tabs">
       <button data-babtab="beranda" aria-current="true">Beranda</button>
       <button data-babtab="staf">Profil Staf</button>
+      <button data-babtab="alumni">Profil Alumni</button>
       <button data-babtab="berita">Berita &amp; Pengumuman</button>
       <button data-babtab="struktur">Struktur &amp; Kontak</button>
       <a href="kalender-akademik.html">Kalender Akademik</a>
@@ -6701,9 +6713,24 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
   <div class="bab-halaman">
     <span class="eyebrow">Tim Pengajar</span>
     <h2 style="font-size:22px; margin:6px 0 16px">Profil Staf &amp; Dosen Pengajar</h2>
-    <div class="placeholder-bab">
-      <b>Halaman ini sedang disusun</b>
-      Daftar konsulen dan dosen pengajar Radiologi FK USU akan segera ditampilkan di sini.
+    <div id="isi-pengajar">
+      <div class="placeholder-bab">
+        <b>Halaman ini sedang disusun</b>
+        Daftar konsulen dan dosen pengajar Radiologi FK USU akan segera ditampilkan di sini.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-alumni" class="tabview" hidden>
+  <div class="bab-halaman">
+    <span class="eyebrow">Direktori Alumni</span>
+    <h2 style="font-size:22px; margin:6px 0 16px">Profil Alumni</h2>
+    <div id="isi-alumni">
+      <div class="placeholder-bab">
+        <b>Halaman ini sedang disusun</b>
+        Profil alumni Program Studi Radiologi FK USU akan segera ditampilkan di sini.
+      </div>
     </div>
   </div>
 </div>
@@ -6712,9 +6739,11 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
   <div class="bab-halaman">
     <span class="eyebrow">Kabar Departemen</span>
     <h2 style="font-size:22px; margin:6px 0 16px">Berita &amp; Pengumuman</h2>
-    <div class="placeholder-bab">
-      <b>Belum ada berita yang dipublikasikan</b>
-      Pantau terus halaman ini untuk kabar terbaru dari Departemen - Program Studi Radiologi FK USU.
+    <div id="isi-berita">
+      <div class="placeholder-bab">
+        <b>Belum ada berita yang dipublikasikan</b>
+        Pantau terus halaman ini untuk kabar terbaru dari Departemen - Program Studi Radiologi FK USU.
+      </div>
     </div>
   </div>
 </div>
@@ -6744,8 +6773,58 @@ footer{text-align:center; padding:26px; font-family:var(--f-mono); font-size:11p
 })();
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Konten Berita/Profil Alumni/Profil Staf diisi Admin lewat Logbook (menu
+// "Kelola Halaman Utama") dan diambil di sini secara publik, tanpa perlu login.
+(function(){
+  const SUPABASE_URL = "https://tqkohogieytxyqdmyqep.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_ieJ1OhHTke5qJMjK0_IEJw_C9qFt2um";
+  const sbBeranda = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.6.0</footer>
+  const escHtml = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  function kartuProfil(k){
+    return `<div class="konten-kartu">
+      ${k.foto ? `<img src="${escHtml(k.foto)}" alt="${escHtml(k.judul)}" loading="lazy">` : ""}
+      <div class="isi">
+        <b>${escHtml(k.judul)}</b>
+        ${k.subjudul ? `<span class="sub">${escHtml(k.subjudul)}</span>` : ""}
+        ${k.isi ? `<p>${escHtml(k.isi)}</p>` : ""}
+      </div>
+    </div>`;
+  }
+
+  function kartuBerita(k){
+    const tgl = new Date(k.dibuat).toLocaleDateString("id-ID", {day:"numeric", month:"long", year:"numeric"});
+    return `<div class="konten-berita">
+      <b>${escHtml(k.judul)}</b>
+      <span class="sub">${k.subjudul ? escHtml(k.subjudul) + " &middot; " : ""}${tgl}</span>
+      ${k.isi ? `<p>${escHtml(k.isi)}</p>` : ""}
+    </div>`;
+  }
+
+  function isiTab(jenis, daftar, kartuFn, tipe){
+    if(!daftar.length) return; // biarkan pesan "sedang disusun" tetap tampil
+    const wadah = document.getElementById("isi-" + jenis);
+    if(!wadah) return;
+    wadah.innerHTML = tipe === "grid"
+      ? `<div class="konten-grid">${daftar.map(kartuFn).join("")}</div>`
+      : daftar.map(kartuFn).join("");
+  }
+
+  (async function muatKontenBeranda(){
+    const { data, error } = await sbBeranda.from("konten_beranda").select("*").eq("status", "aktif").order("urutan");
+    if(error || !data) return; // biarkan placeholder tetap tampil kalau gagal memuat
+    isiTab("pengajar", data.filter(k => k.jenis === "pengajar"), kartuProfil, "grid");
+    isiTab("alumni", data.filter(k => k.jenis === "alumni"), kartuProfil, "grid");
+    isiTab("berita", data.filter(k => k.jenis === "berita"), kartuBerita, "list");
+  })();
+})();
+</script>
+
+
+<footer>&copy; 2026 Vicky &middot; Departemen - Program Studi Radiologi, Fakultas Kedokteran Universitas Sumatera Utara &middot; v1.7.0</footer>
 <script>
 document.querySelectorAll(".num").forEach(el => {
   const target = +el.dataset.target, durasi = 1200, mulai = performance.now();

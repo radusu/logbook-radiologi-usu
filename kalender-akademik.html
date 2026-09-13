@@ -437,27 +437,26 @@ const DAFTAR_PEMBIMBING = [
 ];
 
 // Riwayat versi ditampilkan lewat footer (klik nomor versi) dan lewat popup
-// "Ada pembaruan" otomatis saat versi berubah. Versi terbaru di paling atas.
-// Tambahkan blok baru di sini setiap kali versi dinaikkan.
+// "Ada pembaruan" otomatis saat versi berubah (sekali saja per versi, lewat
+// localStorage). Hanya berisi perubahan yang terasa oleh pengguna/PPDS --
+// perubahan teknis atau khusus Admin sengaja tidak dicantumkan di sini.
+// Versi terbaru di paling atas. Tambahkan blok baru setiap versi dinaikkan.
 const APP_VERSION = "2.0.1";
 const RIWAYAT_VERSI = [
-  {v:"2.0.1", tanggal:"13 September 2026", catatan:[
-    "Morning Report kini jadi tab tersendiri di dalam kartu \"Kalender kegiatan\", ditampilkan sebagai daftar ringkas dikelompokkan per minggu",
-    "Tab baru \"Input Morning Report\" khusus Admin: pilih pembimbing, centang tanggal langsung di kalender, satu tombol untuk input semuanya sekaligus",
-    "Tombol \"Ubah\" untuk Admin pada tiap kegiatan (termasuk Morning Report), tanpa perlu hapus dan buat ulang"
+  {v:"2.0.1", catatan:[
+    "Jadwal Morning Report kini tampil rapi sebagai tab tersendiri di kalender, dikelompokkan per minggu"
   ]},
-  {v:"2.0.0", tanggal:"13 September 2026", catatan:[
-    "Header disamakan dengan tampilan Logbook (logo, judul, dan subjudul departemen)",
-    "Tab \"Sinkronisasi Kalender\" diubah jadi \"Sinkron ke Kalender Perangkat\" (bahasa lebih jelas)"
+  {v:"2.0.0", catatan:[
+    "Tampilan header disamakan dengan Logbook",
+    "Tab \"Sinkronisasi Kalender\" diubah jadi \"Sinkron ke Kalender Perangkat\""
   ]},
-  {v:"1.0.0 – 1.10.0", tanggal:"Agustus – 13 September 2026", catatan:[
+  {v:"1.0.0 – 1.10.0", catatan:[
     "Rilis awal Kalender Akademik, terpisah dari Logbook dengan login/daftar sendiri",
     "Pengajuan kegiatan, persetujuan Admin, dan status pelaksanaan (Terjadwal/Sudah Terlaksana/Reschedule)",
-    "Sinkronisasi otomatis dua arah dengan Logbook: kegiatan yang sudah terlaksana masuk ke logbook presentan, dan sebaliknya",
+    "Kegiatan yang sudah terlaksana otomatis masuk ke logbook, dan sebaliknya",
     "Langganan kalender ke HP (iPhone/Android/Google Calendar)",
-    "Jenis kegiatan Morning Report ditambahkan, khusus diinput Admin",
-    "Nama presentan dikunci untuk diri sendiri; nama pembimbing dipilih dari daftar konsulen tetap",
-    "Peran Tenaga Pendidik digabung menjadi Admin"
+    "Jadwal Morning Report kini tampil di kalender",
+    "Nama presentan kini selalu diri sendiri; nama pembimbing dipilih dari daftar konsulen tetap"
   ]}
 ];
 
@@ -467,7 +466,7 @@ function tampilkanRiwayatVersi(hanyaTerbaru){
     <h2 style="margin-bottom:2px">${hanyaTerbaru ? "Ada pembaruan!" : "Riwayat Versi"}</h2>
     <p class="muted" style="font-size:13px; margin:0 0 16px">Kalender Kegiatan Radiologi FK USU</p>
     ${daftar.map(r => `<div class="versi-blok">
-      <div class="eyebrow">Versi ${esc(r.v)} &middot; ${esc(r.tanggal)}</div>
+      <div class="eyebrow">Versi ${esc(r.v)}</div>
       <ul>${r.catatan.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
     </div>`).join("")}
     ${hanyaTerbaru ? `<button class="btn btn-p" data-act="tutupModalVersi" style="width:100%; margin-top:6px">Mengerti</button>` : ""}

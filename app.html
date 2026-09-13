@@ -444,21 +444,23 @@ const JENIS_KE_KALENDER = {
 };
 
 // Riwayat versi ditampilkan lewat footer (klik nomor versi) dan lewat popup
-// "Ada pembaruan" otomatis saat versi berubah. Versi terbaru di paling atas.
-// Tambahkan blok baru di sini setiap kali versi dinaikkan.
-const APP_VERSION = "2.1.0";
+// "Ada pembaruan" otomatis saat versi berubah (sekali saja per versi, lewat
+// localStorage). Hanya berisi perubahan yang terasa oleh pengguna/PPDS --
+// perubahan teknis atau khusus Admin sengaja tidak dicantumkan di sini.
+// Versi terbaru di paling atas. Tambahkan blok baru setiap versi dinaikkan.
+const APP_VERSION = "2.2.0";
 const RIWAYAT_VERSI = [
-  {v:"2.1.0", tanggal:"13 September 2026", catatan:[
-    "Tombol \"Ubah Nilai\" untuk Admin pada entri kegiatan ilmiah -- nilai bisa diperbaiki kapan saja, walau entrinya sudah lama terverifikasi",
-    "Hanya superadmin (dr. Vicky Septian Ariska) yang bisa mengangkat Admin baru; Admin biasa tidak bisa mengubah peran orang lain",
-    "Admin sekarang melihat semua entri yang menunggu diverifikasi, tidak hanya yang kebetulan ditujukan ke akunnya"
+  {v:"2.2.0", catatan:[
+    "Halaman utama (Beranda FK USU) kini punya tab Profil Alumni, selain Profil Staf dan Berita & Pengumuman"
   ]},
-  {v:"1.0.0 – 2.0.0", tanggal:"Agustus – 13 September 2026", catatan:[
+  {v:"2.1.0", catatan:[
+    "Perbaikan sistem verifikasi & penilaian, supaya entri lebih cepat ditinjau dan nilai bisa diperbaiki kalau ada kesalahan"
+  ]},
+  {v:"1.0.0 – 2.0.0", catatan:[
     "Rilis awal Logbook: kasus, tindakan, kegiatan ilmiah, jaga, tesis, cuti & izin",
     "Verifikasi dan penilaian oleh supervisor/admin",
     "Tombol navigasi langsung ke Kalender Akademik",
-    "Sinkronisasi otomatis dua arah dengan Kalender Akademik",
-    "Peran Tenaga Pendidik digabung menjadi Admin"
+    "Kegiatan ilmiah otomatis tersinkron dengan Kalender Akademik"
   ]}
 ];
 
@@ -468,7 +470,7 @@ function tampilkanRiwayatVersi(hanyaTerbaru){
     <h2 style="margin-bottom:2px">${hanyaTerbaru ? "Ada pembaruan!" : "Riwayat Versi"}</h2>
     <p class="muted" style="font-size:13px; margin:0 0 16px">Logbook Radiologi FK USU</p>
     ${daftar.map(r => `<div class="versi-blok">
-      <div class="eyebrow">Versi ${esc(r.v)} &middot; ${esc(r.tanggal)}</div>
+      <div class="eyebrow">Versi ${esc(r.v)}</div>
       <ul>${r.catatan.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
     </div>`).join("")}
     ${hanyaTerbaru ? `<button class="btn btn-p" data-act="tutupModalVersi" style="width:100%; margin-top:6px">Mengerti</button>` : ""}
@@ -533,6 +535,8 @@ let draftTesisPDF = null;
 let draftNilai = {};                // nilai yang sedang diisi konsulen, per entri
 let draftCatatanNilai = {};         // catatan pembimbing yang sedang ditulis
 let editNilaiId = null;             // id entri yang nilainya sedang diubah Admin
+let kontenJenis = "berita";         // sub-tab aktif di "Kelola Halaman Utama": berita/alumni/pengajar
+let editKontenId = null;            // id konten_beranda yang sedang diubah
 let akunMenuTerbuka = false;        // dropdown nama akun di pojok kanan atas
 let draftRiwayat = null;            // riwayat pendidikan yang sedang disunting di Profil Saya
 let pengajuanSemesterSaya = [];     // pengajuan perbaikan semester milik akun aktif
@@ -650,6 +654,15 @@ async function muatProfilAktif(userId){
   DB.tesis = [];
   if(p.peran === "ppds") await amanMuat(muatTesisSaya);
   if(p.peran === "admin"){ await amanMuat(muatTesisSemua); await amanMuat(muatEntriTesisSemua); }
+
+  DB.kontenBeranda = [];
+  if(p.peran === "admin") await amanMuat(muatKontenBeranda);
+}
+
+async function muatKontenBeranda(){
+  const { data, error } = await sb.from("konten_beranda").select("*").order("jenis").order("urutan");
+  if(error){ toast("Gagal memuat konten halaman utama."); return; }
+  DB.kontenBeranda = data || [];
 }
 
 async function muatPengajuanSemesterSaya(){
@@ -1157,7 +1170,8 @@ const IKON_NAV = {
   jaga: `<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>`,
   semester: `<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>`,
   ujian: `<circle cx="12" cy="9" r="5.5"/><path d="M9 14l-1.5 6L12 17l4.5 3L15 14"/>`,
-  riwayat: `<path d="M4 12a8 8 0 1 1 2.5 5.8"/><path d="M4 12V7M4 12h5"/>`
+  riwayat: `<path d="M4 12a8 8 0 1 1 2.5 5.8"/><path d="M4 12V7M4 12h5"/>`,
+  konten: `<rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M8 9h8M8 12.5h8M8 16h5"/>`
 };
 function menu(){
   const u = me(), p = u.peran;
@@ -1166,7 +1180,7 @@ function menu(){
     const dasar = [["beranda","Beranda"],["peserta","Peserta"],["pantau","Absensi"],
       ["cuti","Cuti & Izin", cutiMenunggu().length],["tesis","Tesis"],
       ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length + pengajuanSemesterMenunggu.length],
-      ["semua","Semua Entri"],["pengaturan","Pengaturan"]];
+      ["semua","Semua Entri"],["konten","Kelola Halaman Utama"],["pengaturan","Pengaturan"]];
     dasar.splice(1, 0, ["verifikasi","Verifikasi", pendingSaya().length]);
     return dasar;
   }
@@ -2124,6 +2138,68 @@ function vSemua(){
     ${list.map(e=>kartuEntri(e,true)).join("")}`;
 }
 
+/* ============ KELOLA HALAMAN UTAMA (Berita/Profil Alumni/Profil Staf) ============ */
+const LABEL_JENIS_KONTEN = {berita:"Berita", alumni:"Profil Alumni", pengajar:"Profil Staf & Pengajar"};
+
+function vKontenBeranda(){
+  const daftar = DB.kontenBeranda.filter(k => k.jenis === kontenJenis).sort((a,b) => a.urutan - b.urutan);
+  return `
+  <p class="muted" style="font-size:13.5px; margin-top:0">Konten di sini tampil publik di halaman utama (index.html), tanpa perlu login.</p>
+  <div class="tabs">${Object.keys(LABEL_JENIS_KONTEN).map(j =>
+    `<button data-act="filterKonten" data-j="${j}" aria-pressed="${kontenJenis===j}">${LABEL_JENIS_KONTEN[j]}</button>`).join("")}</div>
+  ${formKonten()}
+  <div class="card" style="margin-top:16px"><div class="card-h"><h2>Daftar ${esc(LABEL_JENIS_KONTEN[kontenJenis])}</h2>
+    <span class="sub">${daftar.length} item</span></div>
+    <div class="card-b">
+      ${daftar.length ? daftar.map(kartuKonten).join("") : `<div class="empty"><b>Belum ada</b>Tambahkan lewat formulir di atas.</div>`}
+    </div>
+  </div>`;
+}
+
+function formKonten(){
+  const e = editKontenId ? DB.kontenBeranda.find(k => k.id === editKontenId) : null;
+  const untukBerita = kontenJenis === "berita";
+  return `<div class="card"><div class="card-h">
+    <div><span class="eyebrow">Formulir</span><h2>${e ? "Ubah" : "Tambah"} ${esc(LABEL_JENIS_KONTEN[kontenJenis])}</h2></div></div>
+    <div class="card-b">
+      <div class="grid g2">
+        ${F(`${untukBerita?"Judul berita":"Nama lengkap"} <span class="req">*</span>`, `<input type="text" id="k-judul" value="${esc(e?e.judul:"")}">`)}
+        ${F(untukBerita ? "Ringkasan singkat (opsional)" : "Sub-judul / jabatan / angkatan (opsional)", `<input type="text" id="k-subjudul" value="${esc(e?e.subjudul||"":"")}">`)}
+      </div>
+      ${F("Foto / gambar -- tautan URL (opsional)", `<input type="text" id="k-foto" value="${esc(e?e.foto||"":"")}" placeholder="https://...">`)}
+      ${F(untukBerita ? "Isi berita" : "Deskripsi", `<textarea id="k-isi" placeholder="Opsional">${esc(e?e.isi||"":"")}</textarea>`)}
+      <div class="grid g2">
+        ${F("Urutan tampil", `<input type="number" id="k-urutan" value="${e?e.urutan:0}">`)}
+        ${F("Status", `<select id="k-status">
+          <option value="aktif" ${(!e||e.status==="aktif")?"selected":""}>Aktif (tampil di halaman utama)</option>
+          <option value="nonaktif" ${e&&e.status==="nonaktif"?"selected":""}>Nonaktif (disembunyikan)</option>
+        </select>`)}
+      </div>
+      <div style="display:flex; gap:9px; flex-wrap:wrap">
+        <button class="btn btn-p" data-act="simpanKonten">${e ? "Simpan perubahan" : "Tambahkan"}</button>
+        ${e ? `<button class="btn btn-o" data-act="batalUbahKonten">Batal</button>` : ""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function kartuKonten(k){
+  return `<div class="entry">
+    <div class="entry-top">
+      <span class="pill ${k.status==="aktif"?"p-ver":"p-draft"}">${k.status==="aktif"?"Aktif":"Nonaktif"}</span>
+      <span class="muted" style="font-size:12.5px">Urutan ${k.urutan}</span>
+    </div>
+    <h4>${esc(k.judul)}</h4>
+    ${k.subjudul ? `<div class="meta">${esc(k.subjudul)}</div>` : ""}
+    ${k.isi ? `<div class="meta" style="margin-top:5px">${esc(k.isi)}</div>` : ""}
+    <div class="acts">
+      <button class="btn btn-o btn-s" data-act="ubahKonten" data-id="${k.id}">Ubah</button>
+      <button class="btn btn-o btn-s" data-act="toggleStatusKonten" data-id="${k.id}">${k.status==="aktif"?"Nonaktifkan":"Aktifkan"}</button>
+      <button class="btn btn-d btn-s" data-act="hapusKonten" data-id="${k.id}">Hapus</button>
+    </div>
+  </div>`;
+}
+
 function vPengaturan(){
   return `<div class="grid g2">
     <div class="card"><div class="card-h"><h2>Titik lokasi jaga</h2></div>
@@ -2948,6 +3024,52 @@ document.addEventListener("click", async ev => {
   else if(a==="filter"){ filterKat = b.dataset.f; render(); }
   else if(a==="ekspor") ekspor();
   else if(a==="cetak") window.print();
+  else if(a==="filterKonten"){ kontenJenis = b.dataset.j; editKontenId = null; render(); }
+  else if(a==="ubahKonten"){ editKontenId = id; render(); window.scrollTo({top:0, behavior:"instant"}); }
+  else if(a==="batalUbahKonten"){ editKontenId = null; render(); }
+  else if(a==="simpanKonten"){
+    const judul = val("k-judul");
+    if(!judul){ toast("Judul wajib diisi."); return; }
+    const payload = {
+      jenis: kontenJenis, judul,
+      subjudul: val("k-subjudul") || null,
+      foto: val("k-foto") || null,
+      isi: val("k-isi") || null,
+      urutan: Number(val("k-urutan")) || 0,
+      status: val("k-status")
+    };
+    if(editKontenId){
+      const { error } = await sb.from("konten_beranda").update(payload).eq("id", editKontenId);
+      if(error){ toast("Gagal menyimpan: " + error.message); return; }
+      toast("Perubahan disimpan.");
+    } else {
+      payload.dibuat_oleh = DB.aktif;
+      const { error } = await sb.from("konten_beranda").insert(payload);
+      if(error){ toast("Gagal menambahkan: " + error.message); return; }
+      toast("Ditambahkan.");
+    }
+    editKontenId = null;
+    await muatKontenBeranda();
+    render();
+  }
+  else if(a==="toggleStatusKonten"){
+    const k = DB.kontenBeranda.find(x => x.id === id);
+    if(!k) return;
+    const statusBaru = k.status === "aktif" ? "nonaktif" : "aktif";
+    const { error } = await sb.from("konten_beranda").update({ status: statusBaru }).eq("id", id);
+    if(error){ toast("Gagal mengubah status: " + error.message); return; }
+    k.status = statusBaru;
+    toast(statusBaru === "aktif" ? "Diaktifkan." : "Dinonaktifkan.");
+    render();
+  }
+  else if(a==="hapusKonten"){
+    if(!confirm("Hapus item ini dari halaman utama? Tindakan ini tidak bisa dibatalkan.")) return;
+    const { error } = await sb.from("konten_beranda").delete().eq("id", id);
+    if(error){ toast("Gagal menghapus: " + error.message); return; }
+    DB.kontenBeranda = DB.kontenBeranda.filter(x => x.id !== id);
+    toast("Dihapus.");
+    render();
+  }
   else if(a==="ajukan"){
     const e = cari();
     if(e.asliSupabase){
@@ -3151,6 +3273,7 @@ function render(){
   const v = {
     beranda:vBeranda, kasus:formKasus, tindakan:formTindakan, ilmiah:formIlmiah,
     jaga:formJaga, riwayat:vRiwayat, verifikasi:vVerifikasi, semua:vSemua, pengaturan:vPengaturan,
+    konten:vKontenBeranda,
     absensi:vAbsensi, pantau:vPantau, akun:vAkun, semester:vSemester, profil:vProfilSaya,
     cuti: me().peran==="admin" ? vCutiAdmin : vCuti,
     tesis: me().peran==="ppds" ? vTesis : vTesisPantau,
@@ -3194,6 +3317,7 @@ setInterval(() => {
     } else {
       DB.users = []; DB.aktif = null; DB.sesiLogin = false;
       editNilaiId = null;
+      kontenJenis = "berita"; editKontenId = null;
     }
     render();
   });
