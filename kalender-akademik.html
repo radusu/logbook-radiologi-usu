@@ -164,7 +164,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.2.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.3.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -586,10 +586,10 @@ function kartuLangganan(){
   const urlHttps = window.location.origin + "/kalender.ics";
   const urlWebcal = urlHttps.replace(/^https?:\/\//, "webcal://");
   return `<div class="card" style="margin-bottom:16px">
-    <div class="card-h"><h2>Langganan Kalender</h2></div>
+    <div class="card-h"><h2>Sinkronisasi Kalender</h2></div>
     <div class="card-b">
       <p style="margin:0 0 12px">Sambungkan sekali, kegiatan yang sudah disetujui akan otomatis muncul di aplikasi Kalender Anda dan selalu ter-update — tidak perlu buka halaman ini lagi.</p>
-      <a class="btn btn-p" href="${urlWebcal}" style="display:inline-block; text-decoration:none">Tambahkan Kalender Ini ke HP Anda</a>
+      <a class="btn btn-p" href="${urlWebcal}" style="display:inline-block; text-decoration:none">Sinkronkan ke Handphone</a>
       <div class="field" style="margin-top:12px"><label>Atau salin alamat ini dan tempel di aplikasi Kalender Anda (Google Calendar, Outlook, dll)</label>
         <input type="text" readonly value="${urlHttps}" id="langganan-url" onclick="this.select()"></div>
       <button class="btn btn-o btn-s" id="btn-salin-langganan" style="margin-top:8px">Salin alamat</button>
@@ -627,6 +627,8 @@ function formAjukan(){
           <option value="daring">Daring (online)</option>
           <option value="hybrid">Hybrid (daring + luring)</option>
         </select></div>
+      <div class="field" id="wrap-zoom" hidden><label>Link Zoom (opsional, jika ada)</label>
+        <input type="url" id="j-zoom" placeholder="https://zoom.us/j/..."></div>
       <div class="field"><label>Lokasi kegiatan (opsional)</label>
         <input type="text" id="j-lokasi" placeholder="Contoh: Ruang Pertemuan Radiologi Lt. 2"></div>
       <div class="field"><label>Nama presentan</label>
@@ -641,8 +643,6 @@ function formAjukan(){
         <input type="text" id="j-judul" placeholder="Contoh: Pneumonia pada anak"></div>
       <div class="field"><label>Nama pembimbing</label>
         <input type="text" id="j-pembimbing" placeholder="Contoh: dr. Nama Pembimbing, Sp.Rad"></div>
-      <div class="field" id="wrap-zoom" hidden><label>Link Zoom (opsional, jika ada)</label>
-        <input type="url" id="j-zoom" placeholder="https://zoom.us/j/..."></div>
       <div class="field"><label>Keterangan (opsional)</label>
         <input type="text" id="j-ket" placeholder="Catatan tambahan"></div>
       <div class="hint" style="margin-bottom:10px">
@@ -776,7 +776,7 @@ function render(){
 
   const tabsUtama = FITUR_LANGGANAN_AKTIF ? `<div class="tabs-admin" style="margin-bottom:16px">
       <button data-act="tabUtamaKalender" aria-pressed="${tabUtama!=="langganan"}">Kalender</button>
-      <button data-act="tabUtamaLangganan" aria-pressed="${tabUtama==="langganan"}">Langganan Kalender</button>
+      <button data-act="tabUtamaLangganan" aria-pressed="${tabUtama==="langganan"}">Sinkronisasi Kalender</button>
     </div>` : "";
 
   if(tabUtama === "langganan" && FITUR_LANGGANAN_AKTIF){
@@ -788,6 +788,10 @@ function render(){
     ${tabsUtama}
     <div class="kal-2kolom">
       <div>
+        ${moderasi ? `<div class="tabs-admin" style="visibility:hidden" aria-hidden="true">
+          <button tabindex="-1">Kalender</button>
+          <button tabindex="-1">Menunggu Persetujuan</button>
+        </div>` : ""}
         ${FITUR_TELEGRAM_AKTIF ? kartuTelegram() : ""}
         ${bisaUnggah() ? formAjukan() : ""}
       </div>
@@ -896,6 +900,8 @@ document.addEventListener("click", ev => {
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
   if(b.dataset.act === "tabAdminMenunggu"){ tabAdmin = "menunggu"; render(); return; }
+  if(b.dataset.act === "tabUtamaKalender"){ tabUtama = "kalender"; render(); return; }
+  if(b.dataset.act === "tabUtamaLangganan"){ tabUtama = "langganan"; render(); return; }
   if(b.dataset.act === "bulanSebelum"){ bulanTampil.setMonth(bulanTampil.getMonth()-1); renderUlang(); return; }
   if(b.dataset.act === "bulanBerikut"){ bulanTampil.setMonth(bulanTampil.getMonth()+1); renderUlang(); return; }
   if(b.dataset.act === "pilihTanggal"){ tanggalDipilih = b.dataset.tgl; renderUlang(); return; }
