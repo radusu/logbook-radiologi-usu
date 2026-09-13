@@ -239,6 +239,7 @@ let tabUtama = "kalender";     // "kalender", "langganan", atau "profil"
 let akunMenuTerbuka = false;   // dropdown nama akun di pojok kanan atas
 let sedangEdit = null;         // id kegiatan yang sedang diubah Admin/Tenaga Pendidik
 let sembunyikanMR = true;      // Morning Report disembunyikan dari kalender & hitungan secara default (terlalu sering, bikin penuh)
+let draftMR = null;            // baris {tanggal, pembimbing} yang sedang diisi Admin untuk input Morning Report massal
 
 function daftarJadwalTampil(){
   return sembunyikanMR ? daftarJadwal.filter(j => j.jenis_kegiatan !== "morning_report") : daftarJadwal;
@@ -566,6 +567,7 @@ async function tampilkanPublikDanLogin(){
   tabUtama = "kalender";
   akunMenuTerbuka = false;
   sedangEdit = null;
+  draftMR = null;
   await muatJadwal();
   tampilkanLogin();
 }
@@ -809,6 +811,29 @@ async function ubahSandiKalender(){
   document.getElementById("pr-sandi").value = "";
   document.getElementById("pr-sandi2").value = "";
   toast("Kata sandi berhasil diubah.");
+}
+
+function formInputMR(){
+  if(draftMR == null) draftMR = [{tanggal:"", pembimbing:""}];
+  const baris = (r, i) => `<div style="display:flex; gap:6px; margin-bottom:8px; align-items:flex-end">
+    <div class="field" style="flex:1; margin:0"><label>Tanggal</label>
+      <input type="date" data-mr="${i}" data-k="tanggal" value="${esc(r.tanggal)}"></div>
+    <div class="field" style="flex:2; margin:0"><label>Pembimbing</label>
+      <select data-mr="${i}" data-k="pembimbing">
+        <option value="">Pilih pembimbing</option>
+        ${DAFTAR_PEMBIMBING.map(n => `<option value="${esc(n)}" ${n===r.pembimbing?"selected":""}>${esc(n)}</option>`).join("")}
+      </select></div>
+    <button class="btn btn-d btn-s" data-act="hapusBarisMR" data-i="${i}" title="Hapus baris">&times;</button>
+  </div>`;
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Input Jadwal Morning Report</h2></div>
+    <div class="card-b">
+      <p class="hint" style="margin-top:0">Masukkan jadwal bulanan sekaligus (jam 08.00, luring, langsung disetujui). Tambah baris untuk tiap tanggal.</p>
+      ${draftMR.map(baris).join("")}
+      <button class="btn btn-o btn-s" id="btn-tambah-baris-mr">+ Tambah baris</button>
+      <button class="btn btn-p btn-s" id="btn-simpan-mr" style="margin-left:8px">Simpan Semua</button>
+    </div>
+  </div>`;
 }
 
 function formAjukan(){
@@ -1081,6 +1106,7 @@ function render(){
           <button tabindex="-1">Menunggu Persetujuan</button>
         </div>` : ""}
         ${FITUR_TELEGRAM_AKTIF ? kartuTelegram() : ""}
+        ${moderasi ? formInputMR() : ""}
         ${bisaUnggah() ? formAjukan() : ""}
       </div>
       <div>
@@ -1105,6 +1131,34 @@ function render(){
 // diklik baik oleh pengguna yang sudah masuk maupun pengunjung yang belum masuk.
 function renderUlang(){
   if(profilSaya) render(); else tampilkanLogin();
+}
+
+async function simpanJadwalMR(){
+  if(sedangProses) return;
+  document.querySelectorAll("[data-mr]").forEach(el => {
+    draftMR[+el.dataset.mr][el.dataset.k] = el.value;
+  });
+  const baris = draftMR.filter(r => r.tanggal && r.pembimbing);
+  if(!baris.length){ toast("Isi minimal satu baris (tanggal & pembimbing) dulu."); return; }
+
+  sedangProses = true;
+  const tombol = document.getElementById("btn-simpan-mr");
+  tombol.disabled = true; tombol.textContent = "Menyimpan…";
+
+  const payload = baris.map(r => ({
+    user_id: profilSaya.id, nama_pengunggah: profilSaya.nama,
+    tanggal: r.tanggal, jam: "08:00", jenis_kegiatan: "morning_report", mode_pelaksanaan: "luring",
+    nama_pembimbing: r.pembimbing, lokasi: "RS. Adam Malik Medan / RS USU Medan", status: "disetujui"
+  }));
+  const { error } = await sb.from("jadwal_akademik").insert(payload);
+  sedangProses = false;
+  tombol.disabled = false; tombol.textContent = "Simpan Semua";
+  if(error){ toast("Gagal menyimpan: " + error.message); return; }
+
+  toast(`${baris.length} jadwal Morning Report tersimpan.`);
+  draftMR = null;
+  await muatJadwal();
+  render();
 }
 
 async function ajukanKegiatan(){
@@ -1211,6 +1265,12 @@ document.addEventListener("click", ev => {
   if(ev.target && ev.target.id === "btn-ubah-sandi"){ ubahSandiKalender(); return; }
   if(ev.target && ev.target.id === "btn-tambah-riwayat"){ draftRiwayat.push({jenjang:"",institusi:"",tahun:""}); render(); return; }
   if(ev.target && ev.target.id === "btn-simpan-riwayat"){ simpanRiwayatKalender(); return; }
+  if(ev.target && ev.target.id === "btn-tambah-baris-mr"){
+    document.querySelectorAll("[data-mr]").forEach(el => { draftMR[+el.dataset.mr][el.dataset.k] = el.value; });
+    draftMR.push({tanggal:"", pembimbing:""});
+    render(); return;
+  }
+  if(ev.target && ev.target.id === "btn-simpan-mr"){ simpanJadwalMR(); return; }
   const b = ev.target.closest("[data-act]");
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
@@ -1219,6 +1279,12 @@ document.addEventListener("click", ev => {
   if(b.dataset.act === "tabUtamaLangganan"){ tabUtama = "langganan"; render(); return; }
   if(b.dataset.act === "tabUtamaProfil"){ tabUtama = "profil"; render(); return; }
   if(b.dataset.act === "hapusRiwayatKal"){ draftRiwayat.splice(+b.dataset.i, 1); render(); return; }
+  if(b.dataset.act === "hapusBarisMR"){
+    document.querySelectorAll("[data-mr]").forEach(el => { draftMR[+el.dataset.mr][el.dataset.k] = el.value; });
+    draftMR.splice(+b.dataset.i, 1);
+    if(!draftMR.length) draftMR.push({tanggal:"", pembimbing:""});
+    render(); return;
+  }
   if(b.dataset.act === "bulanSebelum"){ bulanTampil.setMonth(bulanTampil.getMonth()-1); renderUlang(); return; }
   if(b.dataset.act === "bulanBerikut"){ bulanTampil.setMonth(bulanTampil.getMonth()+1); renderUlang(); return; }
   if(b.dataset.act === "pilihTanggal"){ tanggalDipilih = b.dataset.tgl; renderUlang(); return; }

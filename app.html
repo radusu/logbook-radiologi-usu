@@ -443,6 +443,23 @@ let lightbox = null;                // bukti yang sedang dibuka besar
 const MAX_BUKTI = 4;
 let sesiJagaDipilih = null;
 let pesertaDibuka = null;
+let urutPeserta = {kolom:"nama", arah:"asc"};  // pengurutan tabel akun/peserta: kolom "nama" atau "semester"
+
+function angkaSemester(ket){
+  const m = String(ket||"").match(/(\d+)/);
+  return m ? +m[1] : 999;
+}
+function urutkanPeserta(list){
+  const dir = urutPeserta.arah === "desc" ? -1 : 1;
+  return list.slice().sort((a,b) => urutPeserta.kolom === "semester"
+    ? (angkaSemester(a.ket) - angkaSemester(b.ket)) * dir
+    : a.nama.localeCompare(b.nama, "id") * dir);
+}
+function thUrut(label, kolom){
+  const aktif = urutPeserta.kolom === kolom;
+  const panah = aktif ? (urutPeserta.arah === "asc" ? " &#9650;" : " &#9660;") : "";
+  return `<th><button class="tautan" data-act="urutkanPeserta" data-kolom="${kolom}" style="font:inherit; font-weight:inherit">${esc(label)}${panah}</button></th>`;
+}
 let tahapAktif = "Proposal Tesis MKK";   // nilai awal; daftar lengkap ada di TAHAP_TESIS
 let draftTesisPDF = null;
 let draftNilai = {};                // nilai yang sedang diisi konsulen, per entri
@@ -835,7 +852,7 @@ function warnaAva(n){
 
 function vAkun(){
   const menunggu = DB.users.filter(u => u.statusAkun === "menunggu");
-  const aktif = DB.users.filter(u => u.statusAkun === "aktif");
+  const aktif = urutkanPeserta(DB.users.filter(u => u.statusAkun === "aktif"));
   const ditolak = DB.users.filter(u => u.statusAkun === "ditolak");
   const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin"};
   const bisaUbahPeran = me().peran === "admin" && me().superAdmin;
@@ -875,7 +892,7 @@ function vAkun(){
 
   <div class="card"><div class="card-h"><h2>Akun aktif</h2><span class="sub">${aktif.length} akun</span></div>
     <div class="tw"><table>
-      <tr><th>Nama</th><th>Email</th><th>Status</th><th>Keterangan</th><th></th></tr>
+      <tr>${thUrut("Nama","nama")}<th>Email</th><th>Status</th>${thUrut("Keterangan","semester")}<th></th></tr>
       ${aktif.map(u=>`<tr>
         <td><b>${esc(u.nama)}</b></td><td class="mono" style="font-size:12.5px">${esc(u.email)}</td>
         <td>${labelPeran[u.peran]||u.peran}</td><td>${esc(u.ket)}</td>
@@ -2198,7 +2215,8 @@ function vSemester(){
 
 // Daftar peserta — dipakai bersama oleh Admin, Tenaga Pendidik, dan Supervisor.
 function vDaftarPeserta(){
-  const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif");
+  const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif")
+    .sort((a,b) => a.nama.localeCompare(b.nama, "id"));
   return `<div class="card"><div class="card-h"><h2>Daftar Peserta</h2>
     <span class="sub">${peserta.length} peserta aktif</span></div>
     <div class="tw"><table>
