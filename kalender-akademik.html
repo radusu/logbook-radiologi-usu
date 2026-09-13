@@ -63,6 +63,16 @@ button,input{font-family:inherit; font-size:inherit; color:inherit}
 }
 .rail-beranda:hover{background:#1B2229}
 @media (max-width:640px){.rail-beranda{padding:12px 6px; font-size:10px}}
+.rail-logbook{
+  position:fixed; right:0; top:calc(50% - 64px); transform:translateY(-50%); z-index:70;
+  background:var(--usu-deep); color:#fff; text-decoration:none;
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  padding:16px 8px; border-radius:var(--r) 0 0 var(--r); border:1px solid #000; border-right:0;
+  writing-mode:vertical-rl; text-orientation:mixed;
+  box-shadow:-4px 0 14px rgba(0,0,0,.2);
+}
+.rail-logbook:hover{background:#04512A}
+@media (max-width:640px){.rail-logbook{padding:12px 6px; font-size:10px}}
 
 main{max-width:820px; margin:0 auto; padding:26px 20px 70px; transition:max-width .15s}
 main.lebar{max-width:1120px}
@@ -188,8 +198,9 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.6.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.7.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
+<a class="rail-logbook" href="app.html" title="Buka Logbook">Logbook</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

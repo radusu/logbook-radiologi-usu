@@ -337,6 +337,16 @@ tr:last-child td{border-bottom:0}
 }
 .rail-beranda:hover{background:#1B2229}
 @media (max-width:640px){.rail-beranda{padding:12px 6px; font-size:10px}}
+.rail-kalender{
+  position:fixed; right:0; top:calc(50% - 64px); transform:translateY(-50%); z-index:70;
+  background:var(--usu); color:#fff; text-decoration:none;
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  padding:16px 8px; border-radius:var(--r) 0 0 var(--r); border:1px solid #000; border-right:0;
+  writing-mode:vertical-rl; text-orientation:mixed;
+  box-shadow:-4px 0 14px rgba(0,0,0,.2);
+}
+.rail-kalender:hover{background:#0c8449}
+@media (max-width:640px){.rail-kalender{padding:12px 6px; font-size:10px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 @media print{.topbar,.nav,.acts,.btn{display:none!important} body{background:#fff}}
 </style>
@@ -363,8 +373,9 @@ tr:last-child td{border-bottom:0}
 
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <main id="view"></main>
-<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.6.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.8.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
+<a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -392,6 +403,20 @@ const JENIS_JAGA  = ["Jaga Pagi","Jaga Sore","Jaga Malam","Jaga Hari Libur","Rot
 
 const PERAN_ILMIAH = ["Presentan","Peserta / audiens"];
 const JENJANG_UJIAN = ["Junior","Madya","Mandiri","Pra Kunkri","OSCE Pra Kunkri"];
+
+// Pemetaan balik dari teks "jenis" kegiatan ilmiah logbook ke kode
+// jenis_kegiatan yang dipakai Kalender Akademik (kalender-akademik.html).
+// Yang tidak ada di sini (Presentasi Poster, Presentasi ilmiah lain,
+// Pretest, Postest) akan masuk ke kalender sebagai jenis kosong (judulnya
+// dipakai sebagai judul kegiatan).
+const JENIS_KE_KALENDER = {
+  "Morning Report": "morning_report",
+  "Jurnal Reading": "jurnal_ppds_radiologi",
+  "Referat": "referat",
+  "Case Report / Laporan Kasus": "case_report",
+  "Ujian Stase": "ujian_stase",
+  "Pembacaan Makalah": "paper_koas"
+};
 
 const hurufMutu = n => n>=80?"A" : n>=75?"B+" : n>=70?"B" : n>=65?"C+" : n>=60?"C" : n>=50?"D" : "E";
 const LULUS = 70;   // batas nilai minimal, sesuaikan dengan ketentuan prodi
@@ -560,7 +585,7 @@ function entriKeApp(e){
     tanggal: e.tanggal, status: e.status,
     supervisor: e.supervisor_id, verifikator: e.verifikator_id, waktuVerifikasi: e.waktu_verifikasi,
     catatan: e.catatan || "", catatanVerifikator: e.catatan_verifikator || "",
-    bukti: e.lampiran || [], asliSupabase: true
+    bukti: e.lampiran || [], kalenderId: e.kalender_id || null, asliSupabase: true
   }, e.rincian || {});
 }
 
@@ -1821,6 +1846,30 @@ function kartuEntri(e, tampilPemilik){
       <button class="btn btn-d btn-s" data-act="hapus" data-id="${e.id}">Hapus entri (superadmin)</button></div>`:""}
   </div>`;
 }
+
+// Menyalin satu entri logbook kategori "ilmiah" ke Kalender Akademik secara
+// OTOMATIS (tanpa tombol/konfirmasi) begitu entrinya dikirim (bukan draf).
+// Kebijakan RLS jadwal_akademik hanya mengizinkan peran ppds/admin mengunggah,
+// jadi peran lain dilewati saja secara diam-diam.
+async function sinkronEntriKeKalender(entriRow){
+  const u = me();
+  if(u.peran !== "ppds" && u.peran !== "admin") return;
+  const rincian = entriRow.rincian || {};
+  const { data: kal, error } = await sb.from("jadwal_akademik").insert({
+    user_id: DB.aktif, nama_pengunggah: u.nama,
+    tanggal: entriRow.tanggal, jenis_kegiatan: JENIS_KE_KALENDER[rincian.jenis] || null,
+    mode_pelaksanaan: "luring",
+    nama_presentan: u.nama, presentan_user_id: DB.aktif,
+    judul_kegiatan: rincian.judul || rincian.jenis || null,
+    nama_pembimbing: entriRow.supervisor_id ? nama(entriRow.supervisor_id) : null,
+    status: u.peran === "admin" ? "disetujui" : "menunggu",
+    status_pelaksanaan: "terlaksana", entri_tersinkron: true, sumber_entri_id: entriRow.id
+  }).select().single();
+  if(error){ console.error("Gagal sinkron otomatis ke kalender:", error.message); return; }
+  await sb.from("entri").update({ kalender_id: kal.id }).eq("id", entriRow.id);
+  const lokal = DB.entries.find(x => x.id === entriRow.id);
+  if(lokal) lokal.kalenderId = kal.id;
+}
 /* --- rincian lengkap satu entri, untuk dibaca konsulen --- */
 function barisGPS(g, label){
   if(!g) return [label, `<span class="muted">Belum direkam</span>`];
@@ -2425,6 +2474,7 @@ async function simpanEntri(kat, status){
     if(error){ toast("Gagal menyimpan entri: " + error.message); return; }
     DB.entries.push(entriKeApp(data));
     draftBukti = [];
+    if(status !== "draft") await sinkronEntriKeKalender(data);
     toast(status==="draft" ? "Tersimpan sebagai draf." : "Terkirim. Menunggu verifikasi supervisor.");
     tab = "riwayat"; filterKat = "semua"; render();
     return;
@@ -2791,7 +2841,11 @@ document.addEventListener("click", async ev => {
       const { error } = await sb.from("entri").update({ status:"menunggu", catatan_verifikator:null }).eq("id", id);
       if(error){ toast("Gagal mengirim entri: " + error.message); return; }
     }
-    e.status="menunggu"; e.catatanVerifikator=""; toast("Terkirim untuk verifikasi."); render();
+    e.status="menunggu"; e.catatanVerifikator="";
+    if(e.kategori==="ilmiah" && !e.kalenderId){
+      await sinkronEntriKeKalender({id:e.id, tanggal:e.tanggal, supervisor_id:e.supervisor, rincian:{jenis:e.jenis, judul:e.judul}});
+    }
+    toast("Terkirim untuk verifikasi."); render();
   }
   else if(a==="hapus"){
     const e = cari();
