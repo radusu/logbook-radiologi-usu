@@ -63,10 +63,13 @@ function escTeks(s) {
     .replace(/\n/g, "\\n");
 }
 
+const MODE_LABEL = { daring: "Daring", luring: "Luring", hybrid: "Hybrid" };
+
 function susunEvent(k) {
   const judul = JENIS_LABEL[k.jenis_kegiatan] || k.judul_kegiatan || "Kegiatan";
   const deskripsi = [];
   if (k.judul_kegiatan && JENIS_LABEL[k.jenis_kegiatan]) deskripsi.push(k.judul_kegiatan);
+  if (k.mode_pelaksanaan) deskripsi.push("Mode: " + (MODE_LABEL[k.mode_pelaksanaan] || k.mode_pelaksanaan));
   if (k.nama_presentan) deskripsi.push("Presentan: " + k.nama_presentan);
   if (k.nama_pembimbing) deskripsi.push("Pembimbing: " + k.nama_pembimbing);
   if (k.keterangan) deskripsi.push(k.keterangan);
@@ -86,6 +89,7 @@ function susunEvent(k) {
 
   baris.push(`SUMMARY:${escTeks(judul)}`);
   if (deskripsi.length) baris.push(`DESCRIPTION:${escTeks(deskripsi.join("\n"))}`);
+  if (k.lokasi) baris.push(`LOCATION:${escTeks(k.lokasi)}`);
   if (k.link_zoom) baris.push(`URL:${escTeks(k.link_zoom)}`);
   baris.push("END:VEVENT");
   return baris;
