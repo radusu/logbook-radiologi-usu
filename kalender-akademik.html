@@ -126,8 +126,8 @@ body.bg-foto .login-box h1{color:var(--ink)}
 .tabs-auth button[aria-pressed="true"]{background:var(--ink); color:#fff}
 .login-box select{width:100%; border:1px solid var(--line); border-radius:var(--r); padding:9px 11px; background:#fff}
 
-.tabs-admin{display:flex; gap:6px; margin-bottom:16px}
-.tabs-admin button{background:#fff; border:1px solid var(--line); border-radius:99px; padding:8px 16px; cursor:pointer; font-size:13.5px; font-family:var(--f-disp); font-weight:600; color:var(--ink2)}
+.tabs-admin{display:flex; align-items:center; gap:6px; margin-bottom:16px}
+.tabs-admin button{display:inline-flex; align-items:center; height:36px; box-sizing:border-box; background:#fff; border:1px solid var(--line); border-radius:99px; padding:0 16px; cursor:pointer; font-size:13.5px; font-family:var(--f-disp); font-weight:600; color:var(--ink2)}
 .tabs-admin button[aria-pressed="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
 .tabs-admin .badge{font-family:var(--f-mono); font-size:10px; background:var(--amber); color:#fff; border-radius:99px; padding:1px 6px; margin-left:6px}
 
@@ -164,7 +164,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.3.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.4.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -195,11 +195,11 @@ if(window.location.hash.includes("error=")){
 
 let profilSaya = null;
 let daftarJadwal = [];
-let daftarPresentan = [];
 let modeAuth = "masuk";        // "masuk", "daftar", atau "lupa"
 let sesiPemulihan = false;     // true saat pengguna datang lewat tautan reset kata sandi
 let tabAdmin = "kalender";     // "kalender" atau "menunggu" (khusus Admin/Tenaga Pendidik)
-let tabUtama = "kalender";     // "kalender" atau "langganan"
+let tabUtama = "kalender";     // "kalender", "langganan", atau "profil"
+let draftRiwayat = null;       // riwayat pendidikan yang sedang disunting di tab Profil Saya
 let daftarPeranKalender = "ppds";
 let sedangProses = false;
 
@@ -273,6 +273,24 @@ const JENIS_KEGIATAN = [
   {v:"ujian_koas",             l:"Ujian Koas",                           k:"UK"}
 ];
 const kegiatanByValue = v => JENIS_KEGIATAN.find(j => j.v === v);
+
+// Daftar tetap nama konsulen/pembimbing. Nama di sini harus PERSIS sama dengan
+// nama akun yang nanti didaftarkan konsulen ybs, supaya kegiatan lama otomatis
+// tertaut ke akunnya begitu akun itu dibuat dan diaktifkan (lihat trigger
+// tautkan_pembimbing_baru di tambahan-sinkron-logbook.sql).
+const DAFTAR_PEMBIMBING = [
+  "dr. Dedy Dwi Putra, Sp.Rad",
+  "Dr.dr. Elvita Rahmi Daulay, M.Ked(Rad), Sp.Rad, Subspes.RI(K)",
+  "dr. Henny Maisara Sipahutar, Sp.Rad, Subsp RA (K)",
+  "dr. Netty Delvrita Lubis, Sp.Rad, Subsp TR (K)",
+  "dr. Evo Elidar Harahap, Sp.Rad, Subsp ABD (K)",
+  "dr. Rizka Farahin Assania, M.Ked(Rad), Sp.Rad",
+  "dr. Hafizhalaila Ammar, M.Ked(Rad), Sp.Rad",
+  "dr. Vicky Septian Ariska, M.Ked(Rad), Sp. Rad",
+  "dr. Harley Septian Willi, Sp.Rad, Subsp. RI (K)",
+  "dr. Muhammad Harmen Reza Siregar, M.Ked(Rad), Sp.Rad",
+  "dr. Rima Arini Purba, Sp.Rad"
+];
 
 function pesanBlokir(judul, isi){
   document.querySelector(".topbar").style.display = "none";
@@ -447,6 +465,9 @@ document.addEventListener("change", e => {
   if(e.target && e.target.id === "j-presentan"){
     document.getElementById("wrap-presentan-lain").hidden = e.target.value !== "__lainnya__";
   }
+  if(e.target && e.target.id === "j-pembimbing"){
+    document.getElementById("wrap-pembimbing-lain").hidden = e.target.value !== "__lainnya__";
+  }
   if(e.target && e.target.id === "j-mode"){
     document.getElementById("wrap-zoom").hidden = e.target.value === "luring";
   }
@@ -473,18 +494,14 @@ async function muatProfilDanRender(userId){
   document.body.classList.remove("bg-foto");
   document.getElementById("judulUtama").hidden = false;
   document.getElementById("siapa").textContent = `${profil.nama} · ${labelPeran(profil.peran)}`;
-  await Promise.all([muatJadwal(), muatDaftarPresentan()]);
+  await muatJadwal();
   render();
-}
-
-async function muatDaftarPresentan(){
-  const { data, error } = await sb.from("daftar_ppds_aktif").select("*").order("nama");
-  if(error){ toast("Gagal memuat daftar presentan: " + error.message); return; }
-  daftarPresentan = data || [];
 }
 
 async function tampilkanPublikDanLogin(){
   profilSaya = null;
+  draftRiwayat = null;
+  tabUtama = "kalender";
   await muatJadwal();
   tampilkanLogin();
 }
@@ -608,6 +625,129 @@ async function salinAlamatLangganan(){
   }
 }
 
+function halamanProfil(){
+  const u = profilSaya;
+  if(draftRiwayat == null) draftRiwayat = (u.riwayat_pendidikan || []).map(r => ({...r}));
+
+  const barisRiwayat = (r, i) => `<div style="border:1px solid var(--line); border-radius:var(--r); padding:11px; margin-bottom:9px">
+    <div class="field"><label>Jenjang</label>
+      <input type="text" data-riw="${i}" data-k="jenjang" value="${esc(r.jenjang||"")}" placeholder="Contoh: S1 Kedokteran"></div>
+    <div class="field"><label>Institusi</label>
+      <input type="text" data-riw="${i}" data-k="institusi" value="${esc(r.institusi||"")}"></div>
+    <div class="field"><label>Tahun lulus</label>
+      <input type="text" data-riw="${i}" data-k="tahun" value="${esc(r.tahun||"")}"></div>
+    <button class="btn btn-d btn-s" data-act="hapusRiwayatKal" data-i="${i}" style="margin-top:4px">Hapus baris</button>
+  </div>`;
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Data diri</h2></div>
+    <div class="card-b">
+      <div class="field"><label>Nama lengkap dengan gelar</label>
+        <input type="text" id="pr-nama" value="${esc(u.nama)}"></div>
+      <div class="field"><label>Alamat email</label>
+        <input type="text" value="${esc(u.email||"")}" disabled></div>
+      <div class="field"><label>NIM / NPM</label>
+        <input type="text" id="pr-nim" value="${esc(u.nim||"")}"></div>
+      <div class="field"><label>NIK</label>
+        <input type="text" id="pr-nik" value="${esc(u.nik||"")}"></div>
+      <div class="field"><label>Tempat lahir</label>
+        <input type="text" id="pr-tempat" value="${esc(u.tempat_lahir||"")}"></div>
+      <div class="field"><label>Tanggal lahir</label>
+        <input type="date" id="pr-tanggal" value="${esc(u.tanggal_lahir||"")}"></div>
+      <button class="btn btn-p" id="btn-simpan-profil">Simpan data diri</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Riwayat pendidikan</h2></div>
+    <div class="card-b">
+      ${draftRiwayat.map(barisRiwayat).join("") || `<div class="empty"><b>Belum ada riwayat</b>Tambahkan jenjang pendidikan Anda.</div>`}
+      <button class="btn btn-o btn-s" id="btn-tambah-riwayat">+ Tambah baris</button>
+      <button class="btn btn-p" id="btn-simpan-riwayat" style="margin-left:8px">Simpan riwayat</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Ubah kata sandi</h2></div>
+    <div class="card-b">
+      <div class="field"><label>Kata sandi baru</label>
+        <input type="password" id="pr-sandi" placeholder="Minimal 8 karakter">
+        <div class="hint">Wajib memuat huruf besar, huruf kecil, angka, dan simbol.</div></div>
+      <div class="field"><label>Ulangi kata sandi baru</label>
+        <input type="password" id="pr-sandi2"></div>
+      <button class="btn btn-p" id="btn-ubah-sandi">Simpan kata sandi baru</button>
+    </div>
+  </div>`;
+}
+
+async function simpanProfilKalender(){
+  if(sedangProses) return;
+  const nama = document.getElementById("pr-nama").value.trim();
+  const nim = document.getElementById("pr-nim").value.trim();
+  const nik = document.getElementById("pr-nik").value.trim();
+  const tempat = document.getElementById("pr-tempat").value.trim();
+  const tanggal = document.getElementById("pr-tanggal").value;
+  if(!nama){ toast("Nama lengkap wajib diisi."); return; }
+
+  sedangProses = true;
+  const tombol = document.getElementById("btn-simpan-profil");
+  tombol.disabled = true; tombol.textContent = "Menyimpan…";
+  const { error } = await sb.from("profil").update({
+    nama, nim: nim || null, nik: nik || null,
+    tempat_lahir: tempat || null, tanggal_lahir: tanggal || null
+  }).eq("id", profilSaya.id);
+  sedangProses = false;
+  tombol.disabled = false; tombol.textContent = "Simpan data diri";
+  if(error){ toast("Gagal menyimpan: " + error.message); return; }
+
+  profilSaya.nama = nama; profilSaya.nim = nim; profilSaya.nik = nik;
+  profilSaya.tempat_lahir = tempat; profilSaya.tanggal_lahir = tanggal;
+  document.getElementById("siapa").textContent = `${profilSaya.nama} · ${labelPeran(profilSaya.peran)}`;
+  toast("Data diri tersimpan.");
+}
+
+async function simpanRiwayatKalender(){
+  if(sedangProses) return;
+  document.querySelectorAll("[data-riw]").forEach(i => {
+    draftRiwayat[+i.dataset.riw][i.dataset.k] = i.value;
+  });
+  sedangProses = true;
+  const tombol = document.getElementById("btn-simpan-riwayat");
+  tombol.disabled = true; tombol.textContent = "Menyimpan…";
+  const bersih = draftRiwayat.filter(r => r.jenjang || r.institusi || r.tahun);
+  const { error } = await sb.from("profil").update({ riwayat_pendidikan: bersih }).eq("id", profilSaya.id);
+  sedangProses = false;
+  if(error){
+    tombol.disabled = false; tombol.textContent = "Simpan riwayat";
+    toast("Gagal menyimpan: " + error.message);
+    return;
+  }
+  profilSaya.riwayat_pendidikan = bersih;
+  draftRiwayat = bersih.map(r => ({...r}));
+  toast("Riwayat pendidikan tersimpan.");
+  render();
+}
+
+async function ubahSandiKalender(){
+  if(sedangProses) return;
+  const sd = document.getElementById("pr-sandi").value;
+  const sd2 = document.getElementById("pr-sandi2").value;
+  if(!sandiKuat(sd)){ toast("Kata sandi minimal 8 karakter dan wajib memuat huruf besar, huruf kecil, angka, dan simbol."); return; }
+  if(sd !== sd2){ toast("Kata sandi dan ulangannya belum sama."); return; }
+
+  sedangProses = true;
+  const tombol = document.getElementById("btn-ubah-sandi");
+  tombol.disabled = true; tombol.textContent = "Menyimpan…";
+  const { error } = await sb.auth.updateUser({ password: sd });
+  sedangProses = false;
+  tombol.disabled = false; tombol.textContent = "Simpan kata sandi baru";
+  if(error){ toast("Gagal mengubah kata sandi: " + error.message); return; }
+  document.getElementById("pr-sandi").value = "";
+  document.getElementById("pr-sandi2").value = "";
+  toast("Kata sandi berhasil diubah.");
+}
+
 function formAjukan(){
   return `<div class="card" style="margin-bottom:16px">
     <div class="card-h"><h2>Ajukan kegiatan baru</h2></div>
@@ -633,16 +773,22 @@ function formAjukan(){
         <input type="text" id="j-lokasi" placeholder="Contoh: Ruang Pertemuan Radiologi Lt. 2"></div>
       <div class="field"><label>Nama presentan</label>
         <select id="j-presentan">
-          <option value="">Pilih presentan</option>
-          ${daftarPresentan.map(p => `<option value="${esc(p.nama)}" ${p.id===profilSaya.id?"selected":""}>${esc(p.nama)}${p.id===profilSaya.id?" (Anda)":""}</option>`).join("")}
+          <option value="diri">${esc(profilSaya.nama)} (Anda)</option>
           <option value="__lainnya__">Lainnya (ketik nama)</option>
-        </select></div>
+        </select>
+        <div class="hint">Kegiatan hanya bisa diajukan untuk diri sendiri. Pilih "Lainnya" hanya untuk presentan dari luar (mis. PPDS institusi lain).</div></div>
       <div class="field" id="wrap-presentan-lain" hidden><label>Nama presentan (ketik manual)</label>
         <input type="text" id="j-presentan-lain" placeholder="Contoh: dr. Nama Presentan"></div>
       <div class="field"><label>Judul / topik (opsional)</label>
         <input type="text" id="j-judul" placeholder="Contoh: Pneumonia pada anak"></div>
       <div class="field"><label>Nama pembimbing</label>
-        <input type="text" id="j-pembimbing" placeholder="Contoh: dr. Nama Pembimbing, Sp.Rad"></div>
+        <select id="j-pembimbing">
+          <option value="">Pilih pembimbing</option>
+          ${DAFTAR_PEMBIMBING.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}
+          <option value="__lainnya__">Lainnya (ketik nama)</option>
+        </select></div>
+      <div class="field" id="wrap-pembimbing-lain" hidden><label>Nama pembimbing (ketik manual)</label>
+        <input type="text" id="j-pembimbing-lain" placeholder="Contoh: dr. Nama Pembimbing, Sp.Rad"></div>
       <div class="field"><label>Keterangan (opsional)</label>
         <input type="text" id="j-ket" placeholder="Catatan tambahan"></div>
       <div class="hint" style="margin-bottom:10px">
@@ -774,13 +920,18 @@ function render(){
   const moderasi = bisaModerasi();
   const jumlahMenunggu = daftarJadwal.filter(j => j.status === "menunggu").length;
 
-  const tabsUtama = FITUR_LANGGANAN_AKTIF ? `<div class="tabs-admin" style="margin-bottom:16px">
-      <button data-act="tabUtamaKalender" aria-pressed="${tabUtama!=="langganan"}">Kalender</button>
-      <button data-act="tabUtamaLangganan" aria-pressed="${tabUtama==="langganan"}">Sinkronisasi Kalender</button>
-    </div>` : "";
+  const tabsUtama = `<div class="tabs-admin" style="margin-bottom:16px">
+      <button data-act="tabUtamaKalender" aria-pressed="${tabUtama==="kalender"}">Kalender</button>
+      ${FITUR_LANGGANAN_AKTIF ? `<button data-act="tabUtamaLangganan" aria-pressed="${tabUtama==="langganan"}">Sinkronisasi Kalender</button>` : ""}
+      <button data-act="tabUtamaProfil" aria-pressed="${tabUtama==="profil"}">Profil Saya</button>
+    </div>`;
 
   if(tabUtama === "langganan" && FITUR_LANGGANAN_AKTIF){
     document.getElementById("isi").innerHTML = `${tabsUtama}${kartuLangganan()}`;
+    return;
+  }
+  if(tabUtama === "profil"){
+    document.getElementById("isi").innerHTML = `${tabsUtama}${halamanProfil()}`;
     return;
   }
 
@@ -824,14 +975,20 @@ async function ajukanKegiatan(){
   const tanggal = document.getElementById("j-tanggal").value;
   const jam = document.getElementById("j-jam").value;
   const jenis = document.getElementById("j-jenis").value;
-  let presentan = document.getElementById("j-presentan").value;
-  if(presentan === "__lainnya__"){
+  const presentanPilihan = document.getElementById("j-presentan").value;
+  let presentan = profilSaya.nama;
+  let presentanUserId = profilSaya.id;
+  if(presentanPilihan === "__lainnya__"){
     presentan = document.getElementById("j-presentan-lain").value.trim();
+    presentanUserId = null;
   }
   const mode = document.getElementById("j-mode").value;
   const lokasi = document.getElementById("j-lokasi").value.trim();
   const judul = document.getElementById("j-judul").value.trim();
-  const pembimbing = document.getElementById("j-pembimbing").value.trim();
+  let pembimbing = document.getElementById("j-pembimbing").value;
+  if(pembimbing === "__lainnya__"){
+    pembimbing = document.getElementById("j-pembimbing-lain").value.trim();
+  }
   const zoom = mode !== "luring" ? document.getElementById("j-zoom").value.trim() : "";
   const ket = document.getElementById("j-ket").value.trim();
   if(!tanggal){ toast("Tanggal kegiatan wajib diisi."); return; }
@@ -845,7 +1002,7 @@ async function ajukanKegiatan(){
   const payload = {
     user_id: profilSaya.id, nama_pengunggah: profilSaya.nama,
     tanggal, jam: jam || null, jenis_kegiatan: jenis, mode_pelaksanaan: mode, lokasi: lokasi || null,
-    nama_presentan: presentan, judul_kegiatan: judul || null,
+    nama_presentan: presentan, presentan_user_id: presentanUserId, judul_kegiatan: judul || null,
     nama_pembimbing: pembimbing || null, link_zoom: zoom || null, keterangan: ket || null
   };
   if(profilSaya.peran === "admin") payload.status = "disetujui";
@@ -896,12 +1053,18 @@ document.addEventListener("click", ev => {
   if(ev.target && ev.target.id === "btn-ajukan"){ ajukanKegiatan(); return; }
   if(ev.target && ev.target.id === "btn-putus-telegram"){ putuskanTelegram(); return; }
   if(ev.target && ev.target.id === "btn-salin-langganan"){ salinAlamatLangganan(); return; }
+  if(ev.target && ev.target.id === "btn-simpan-profil"){ simpanProfilKalender(); return; }
+  if(ev.target && ev.target.id === "btn-ubah-sandi"){ ubahSandiKalender(); return; }
+  if(ev.target && ev.target.id === "btn-tambah-riwayat"){ draftRiwayat.push({jenjang:"",institusi:"",tahun:""}); render(); return; }
+  if(ev.target && ev.target.id === "btn-simpan-riwayat"){ simpanRiwayatKalender(); return; }
   const b = ev.target.closest("[data-act]");
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
   if(b.dataset.act === "tabAdminMenunggu"){ tabAdmin = "menunggu"; render(); return; }
   if(b.dataset.act === "tabUtamaKalender"){ tabUtama = "kalender"; render(); return; }
   if(b.dataset.act === "tabUtamaLangganan"){ tabUtama = "langganan"; render(); return; }
+  if(b.dataset.act === "tabUtamaProfil"){ tabUtama = "profil"; render(); return; }
+  if(b.dataset.act === "hapusRiwayatKal"){ draftRiwayat.splice(+b.dataset.i, 1); render(); return; }
   if(b.dataset.act === "bulanSebelum"){ bulanTampil.setMonth(bulanTampil.getMonth()-1); renderUlang(); return; }
   if(b.dataset.act === "bulanBerikut"){ bulanTampil.setMonth(bulanTampil.getMonth()+1); renderUlang(); return; }
   if(b.dataset.act === "pilihTanggal"){ tanggalDipilih = b.dataset.tgl; renderUlang(); return; }
