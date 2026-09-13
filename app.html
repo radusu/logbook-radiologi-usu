@@ -317,6 +317,23 @@ tr:last-child td{border-bottom:0}
   opacity:0; pointer-events:none;
 }
 .toast.on{transform:translateX(-50%) translateY(0); opacity:1; pointer-events:auto}
+.modal-bg{
+  position:fixed; inset:0; background:rgba(9,12,15,.6); z-index:120;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modal-bg[hidden]{display:none}
+.modal-box{
+  background:#fff; border-radius:var(--r); max-width:480px; width:100%; max-height:80vh;
+  overflow-y:auto; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.35); position:relative;
+}
+.modal-x{position:sticky; top:-24px; text-align:right; margin:-24px -24px 0; padding:10px 14px 0}
+.modal-x button{background:none; border:0; font-size:22px; line-height:1; cursor:pointer; color:var(--mist)}
+.modal-x button:hover{color:var(--ink)}
+.versi-blok{margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line2)}
+.versi-blok:last-child{border-bottom:0; margin-bottom:0; padding-bottom:0}
+.versi-blok .eyebrow{margin-bottom:4px}
+.versi-blok ul{margin:6px 0 0; padding-left:18px}
+.versi-blok li{margin-bottom:3px; font-size:13.5px; line-height:1.5}
 .tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px}
 .tabs button{background:#fff; border:1px solid var(--line); border-radius:99px; padding:5px 13px; cursor:pointer; font-size:13.5px}
 .tabs button[aria-pressed="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
@@ -372,12 +389,19 @@ tr:last-child td{border-bottom:0}
 
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <main id="view"></main>
-<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v2.0.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU
+  <a href="#" id="tautanVersi" onclick="return false" style="color:inherit; text-decoration:underline">v<span id="teksVersi"></span></a></footer>
 <div class="rail-tabs">
   <a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
   <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal-bg" id="modalVersi" hidden>
+  <div class="modal-box">
+    <div class="modal-x"><button data-act="tutupModalVersi" aria-label="Tutup">&times;</button></div>
+    <div id="isiModalVersi"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -418,6 +442,50 @@ const JENIS_KE_KALENDER = {
   "Ujian Stase": "ujian_stase",
   "Pembacaan Makalah": "paper_koas"
 };
+
+// Riwayat versi ditampilkan lewat footer (klik nomor versi) dan lewat popup
+// "Ada pembaruan" otomatis saat versi berubah. Versi terbaru di paling atas.
+// Tambahkan blok baru di sini setiap kali versi dinaikkan.
+const APP_VERSION = "2.1.0";
+const RIWAYAT_VERSI = [
+  {v:"2.1.0", tanggal:"13 September 2026", catatan:[
+    "Tombol \"Ubah Nilai\" untuk Admin pada entri kegiatan ilmiah -- nilai bisa diperbaiki kapan saja, walau entrinya sudah lama terverifikasi",
+    "Hanya superadmin (dr. Vicky Septian Ariska) yang bisa mengangkat Admin baru; Admin biasa tidak bisa mengubah peran orang lain",
+    "Admin sekarang melihat semua entri yang menunggu diverifikasi, tidak hanya yang kebetulan ditujukan ke akunnya"
+  ]},
+  {v:"1.0.0 – 2.0.0", tanggal:"Agustus – 13 September 2026", catatan:[
+    "Rilis awal Logbook: kasus, tindakan, kegiatan ilmiah, jaga, tesis, cuti & izin",
+    "Verifikasi dan penilaian oleh supervisor/admin",
+    "Tombol navigasi langsung ke Kalender Akademik",
+    "Sinkronisasi otomatis dua arah dengan Kalender Akademik",
+    "Peran Tenaga Pendidik digabung menjadi Admin"
+  ]}
+];
+
+function tampilkanRiwayatVersi(hanyaTerbaru){
+  const daftar = hanyaTerbaru ? [RIWAYAT_VERSI[0]] : RIWAYAT_VERSI;
+  document.getElementById("isiModalVersi").innerHTML = `
+    <h2 style="margin-bottom:2px">${hanyaTerbaru ? "Ada pembaruan!" : "Riwayat Versi"}</h2>
+    <p class="muted" style="font-size:13px; margin:0 0 16px">Logbook Radiologi FK USU</p>
+    ${daftar.map(r => `<div class="versi-blok">
+      <div class="eyebrow">Versi ${esc(r.v)} &middot; ${esc(r.tanggal)}</div>
+      <ul>${r.catatan.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
+    </div>`).join("")}
+    ${hanyaTerbaru ? `<button class="btn btn-p" data-act="tutupModalVersi" style="width:100%; margin-top:6px">Mengerti</button>` : ""}
+  `;
+  document.getElementById("modalVersi").hidden = false;
+}
+
+document.getElementById("teksVersi").textContent = APP_VERSION;
+document.getElementById("tautanVersi").addEventListener("click", () => tampilkanRiwayatVersi(false));
+
+try{
+  const versiTerlihat = localStorage.getItem("logbookVersiTerlihat");
+  if(versiTerlihat !== APP_VERSION){
+    tampilkanRiwayatVersi(true);
+    localStorage.setItem("logbookVersiTerlihat", APP_VERSION);
+  }
+}catch(e){ /* localStorage tidak tersedia -- lewati saja, bukan hal kritis */ }
 
 const hurufMutu = n => n>=80?"A" : n>=75?"B+" : n>=70?"B" : n>=65?"C+" : n>=60?"C" : n>=50?"D" : "E";
 const LULUS = 70;   // batas nilai minimal, sesuaikan dengan ketentuan prodi
@@ -2215,12 +2283,11 @@ function vSemester(){
 
 // Daftar peserta — dipakai bersama oleh Admin, Tenaga Pendidik, dan Supervisor.
 function vDaftarPeserta(){
-  const peserta = DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif")
-    .sort((a,b) => a.nama.localeCompare(b.nama, "id"));
+  const peserta = urutkanPeserta(DB.users.filter(u=>isPesertaPeran(u.peran) && u.statusAkun==="aktif"));
   return `<div class="card"><div class="card-h"><h2>Daftar Peserta</h2>
     <span class="sub">${peserta.length} peserta aktif</span></div>
     <div class="tw"><table>
-      <tr><th>Nama</th><th>Semester</th><th>Kasus</th><th>Tindakan</th><th>Ilmiah</th><th>Jaga</th></tr>
+      <tr>${thUrut("Nama","nama")}${thUrut("Semester","semester")}<th>Kasus</th><th>Tindakan</th><th>Ilmiah</th><th>Jaga</th></tr>
       ${peserta.map(u=>{
         const k = c => DB.entries.filter(e=>e.userId===u.id&&e.kategori===c&&e.status==="terverifikasi").length;
         const ct = cutiAktif(u.id);
@@ -2564,11 +2631,13 @@ function eksporPeserta(id){
 document.addEventListener("click", async ev => {
   const nav = ev.target.closest("[data-tab]");
   if(nav){ tab = nav.dataset.tab; render(); return; }
+  if(ev.target && ev.target.id === "modalVersi"){ document.getElementById("modalVersi").hidden = true; return; }
   const b = ev.target.closest("[data-act]");
   if(!b){
     if(akunMenuTerbuka && !ev.target.closest(".akun-dropdown")){ akunMenuTerbuka = false; render(); }
     return;
   }
+  if(b.dataset.act === "tutupModalVersi"){ document.getElementById("modalVersi").hidden = true; return; }
   const a = b.dataset.act, id = b.dataset.id;
   const cari = () => DB.entries.find(x => x.id === id);
 
@@ -2735,6 +2804,12 @@ document.addEventListener("click", async ev => {
     if(error){ toast("Gagal menolak pengajuan: " + error.message); return; }
     c.status = "ditolak"; c.penyetuju = DB.aktif; c.catatan = catatan;
     toast("Pengajuan ditolak."); render(); return;
+  }
+  if(a==="urutkanPeserta"){
+    const kolom = b.dataset.kolom;
+    if(urutPeserta.kolom === kolom) urutPeserta.arah = urutPeserta.arah === "asc" ? "desc" : "asc";
+    else { urutPeserta.kolom = kolom; urutPeserta.arah = "asc"; }
+    render(); return;
   }
   if(a==="bukaPeserta"){ pesertaDibuka = b.dataset.id; render(); return; }
   if(a==="tutupPeserta"){ pesertaDibuka = null; render(); return; }
