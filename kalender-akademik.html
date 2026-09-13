@@ -188,7 +188,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.5.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.6.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -224,6 +224,7 @@ let sesiPemulihan = false;     // true saat pengguna datang lewat tautan reset k
 let tabAdmin = "kalender";     // "kalender" atau "menunggu" (khusus Admin/Tenaga Pendidik)
 let tabUtama = "kalender";     // "kalender", "langganan", atau "profil"
 let akunMenuTerbuka = false;   // dropdown nama akun di pojok kanan atas
+let sedangEdit = null;         // id kegiatan yang sedang diubah Admin/Tenaga Pendidik
 let draftRiwayat = null;       // riwayat pendidikan yang sedang disunting di tab Profil Saya
 let daftarPeranKalender = "ppds";
 let sedangProses = false;
@@ -289,6 +290,7 @@ const FITUR_TELEGRAM_AKTIF = false;
 const FITUR_LANGGANAN_AKTIF = true;
 
 const JENIS_KEGIATAN = [
+  {v:"morning_report",         l:"Morning Report",                       k:"MR"},
   {v:"case_report",            l:"Case Report",                          k:"CR"},
   {v:"referat",                l:"Referat",                               k:"RF"},
   {v:"jurnal_ppds_radiologi",  l:"Pembacaan Jurnal PPDS Radiologi",       k:"JR"},
@@ -496,6 +498,12 @@ document.addEventListener("change", e => {
   if(e.target && e.target.id === "j-mode"){
     document.getElementById("wrap-zoom").hidden = e.target.value === "luring";
   }
+  if(e.target && e.target.id === "e-pembimbing"){
+    document.getElementById("wrap-e-pembimbing-lain").hidden = e.target.value !== "__lainnya__";
+  }
+  if(e.target && e.target.id === "e-mode"){
+    document.getElementById("wrap-e-zoom").hidden = e.target.value === "luring";
+  }
   if(e.target && e.target.dataset.actChange === "statusPelaksanaan"){
     ubahStatusPelaksanaan(e.target.dataset.id, e.target.value);
   }
@@ -533,6 +541,7 @@ async function tampilkanPublikDanLogin(){
   draftRiwayat = null;
   tabUtama = "kalender";
   akunMenuTerbuka = false;
+  sedangEdit = null;
   await muatJadwal();
   tampilkanLogin();
 }
@@ -789,7 +798,7 @@ function formAjukan(){
       <div class="field"><label>Jenis kegiatan</label>
         <select id="j-jenis">
           <option value="">Pilih jenis kegiatan</option>
-          ${JENIS_KEGIATAN.map(j => `<option value="${j.v}">${esc(j.l)}</option>`).join("")}
+          ${JENIS_KEGIATAN.filter(j => j.v !== "morning_report" || bisaModerasi()).map(j => `<option value="${j.v}">${esc(j.l)}</option>`).join("")}
         </select></div>
       <div class="field"><label>Mode pelaksanaan</label>
         <select id="j-mode">
@@ -834,6 +843,7 @@ function fmtJam(t){
 }
 
 function barisJadwal(j){
+  if(sedangEdit === j.id) return formUbahJadwal(j);
   const bisaHapus = profilSaya && (profilSaya.id === j.user_id || profilSaya.peran === "admin");
   const bisaTinjau = bisaModerasi() && j.status === "menunggu";
   const bisaUbahPelaksanaan = j.status === "disetujui" && profilSaya && (profilSaya.id === j.user_id || bisaModerasi());
@@ -872,9 +882,83 @@ function barisJadwal(j){
       ${zoomAman ? `<a class="btn btn-o btn-s" href="${esc(zoomAman)}" target="_blank" rel="noopener">Buka Zoom</a>` : ""}
       ${bisaTinjau ? `<button class="btn btn-p btn-s" data-act="setujui" data-id="${j.id}">Setujui</button>
         <button class="btn btn-d btn-s" data-act="tolak" data-id="${j.id}">Tolak</button>` : ""}
+      ${bisaModerasi() ? `<button class="btn btn-o btn-s" data-act="ubahJadwal" data-id="${j.id}">Ubah</button>` : ""}
       ${bisaHapus ? `<button class="btn btn-d btn-s" data-act="hapus" data-id="${j.id}">Hapus</button>` : ""}
     </div>
   </div>`;
+}
+
+function formUbahJadwal(j){
+  const jenisSekarang = j.jenis_kegiatan || "";
+  const pembimbingDikenal = j.nama_pembimbing && DAFTAR_PEMBIMBING.includes(j.nama_pembimbing);
+  return `<div class="baris-jadwal" style="display:block; background:var(--line2)">
+    <div class="field"><label>Tanggal kegiatan</label>
+      <input type="date" id="e-tanggal" value="${esc(j.tanggal)}"></div>
+    <div class="field"><label>Jam kegiatan (opsional)</label>
+      <input type="time" id="e-jam" value="${esc(j.jam ? j.jam.slice(0,5) : "")}"></div>
+    <div class="field"><label>Jenis kegiatan</label>
+      <select id="e-jenis">
+        <option value="">Pilih jenis kegiatan</option>
+        ${JENIS_KEGIATAN.map(k => `<option value="${k.v}" ${k.v===jenisSekarang?"selected":""}>${esc(k.l)}</option>`).join("")}
+      </select></div>
+    <div class="field"><label>Mode pelaksanaan</label>
+      <select id="e-mode">
+        <option value="luring" ${j.mode_pelaksanaan==="luring"||!j.mode_pelaksanaan?"selected":""}>Luring (tatap muka)</option>
+        <option value="daring" ${j.mode_pelaksanaan==="daring"?"selected":""}>Daring (online)</option>
+        <option value="hybrid" ${j.mode_pelaksanaan==="hybrid"?"selected":""}>Hybrid (daring + luring)</option>
+      </select></div>
+    <div class="field" id="wrap-e-zoom" ${(j.mode_pelaksanaan==="luring"||!j.mode_pelaksanaan)?"hidden":""}><label>Link Zoom</label>
+      <input type="url" id="e-zoom" value="${esc(j.link_zoom||"")}"></div>
+    <div class="field"><label>Lokasi kegiatan</label>
+      <input type="text" id="e-lokasi" value="${esc(j.lokasi||"")}"></div>
+    <div class="field"><label>Nama presentan</label>
+      <input type="text" id="e-presentan" value="${esc(j.nama_presentan||"")}"></div>
+    <div class="field"><label>Judul / topik</label>
+      <input type="text" id="e-judul" value="${esc(j.judul_kegiatan||"")}"></div>
+    <div class="field"><label>Nama pembimbing</label>
+      <select id="e-pembimbing">
+        <option value="">Pilih pembimbing</option>
+        ${DAFTAR_PEMBIMBING.map(n => `<option value="${esc(n)}" ${n===j.nama_pembimbing?"selected":""}>${esc(n)}</option>`).join("")}
+        <option value="__lainnya__" ${(j.nama_pembimbing && !pembimbingDikenal)?"selected":""}>Lainnya (ketik nama)</option>
+      </select></div>
+    <div class="field" id="wrap-e-pembimbing-lain" ${(j.nama_pembimbing && !pembimbingDikenal)?"":"hidden"}><label>Nama pembimbing (ketik manual)</label>
+      <input type="text" id="e-pembimbing-lain" value="${(j.nama_pembimbing && !pembimbingDikenal)?esc(j.nama_pembimbing):""}"></div>
+    <div class="field"><label>Keterangan</label>
+      <input type="text" id="e-ket" value="${esc(j.keterangan||"")}"></div>
+    <div style="display:flex; gap:8px; margin-top:4px">
+      <button class="btn btn-p btn-s" data-act="simpanUbah" data-id="${j.id}">Simpan perubahan</button>
+      <button class="btn btn-o btn-s" data-act="batalUbah">Batal</button>
+    </div>
+  </div>`;
+}
+
+async function simpanUbahJadwal(id){
+  if(sedangProses) return;
+  const tanggal = document.getElementById("e-tanggal").value;
+  const jam = document.getElementById("e-jam").value;
+  const jenis = document.getElementById("e-jenis").value;
+  const mode = document.getElementById("e-mode").value;
+  const zoom = mode !== "luring" ? document.getElementById("e-zoom").value.trim() : "";
+  const lokasi = document.getElementById("e-lokasi").value.trim();
+  const presentan = document.getElementById("e-presentan").value.trim();
+  const judul = document.getElementById("e-judul").value.trim();
+  let pembimbing = document.getElementById("e-pembimbing").value;
+  if(pembimbing === "__lainnya__") pembimbing = document.getElementById("e-pembimbing-lain").value.trim();
+  const ket = document.getElementById("e-ket").value.trim();
+  if(!tanggal){ toast("Tanggal kegiatan wajib diisi."); return; }
+
+  sedangProses = true;
+  const { error } = await sb.from("jadwal_akademik").update({
+    tanggal, jam: jam || null, jenis_kegiatan: jenis || null, mode_pelaksanaan: mode,
+    link_zoom: zoom || null, lokasi: lokasi || null, nama_presentan: presentan || null,
+    judul_kegiatan: judul || null, nama_pembimbing: pembimbing || null, keterangan: ket || null
+  }).eq("id", id);
+  sedangProses = false;
+  if(error){ toast("Gagal menyimpan perubahan: " + error.message); return; }
+  sedangEdit = null;
+  toast("Perubahan disimpan.");
+  await muatJadwal();
+  render();
 }
 
 function buatGridBulan(){
@@ -1118,6 +1202,9 @@ document.addEventListener("click", ev => {
   if(b.dataset.act === "setujui") setujuiJadwal(id);
   if(b.dataset.act === "tolak") tolakJadwal(id);
   if(b.dataset.act === "hapus") hapusJadwal(id);
+  if(b.dataset.act === "ubahJadwal"){ sedangEdit = id; render(); }
+  if(b.dataset.act === "batalUbah"){ sedangEdit = null; render(); }
+  if(b.dataset.act === "simpanUbah") simpanUbahJadwal(id);
 });
 
 </script>
