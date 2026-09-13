@@ -373,7 +373,7 @@ tr:last-child td{border-bottom:0}
 
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <main id="view"></main>
-<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.8.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU v1.9.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 <a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -540,7 +540,7 @@ async function muatProfilAktif(userId){
 
   // Staf/admin butuh melihat semua akun (menu Akun, rekap peserta, dsb).
   // Peserta biasa hanya butuh melihat daftar staf, untuk dropdown supervisor/pembimbing.
-  if(p.peran === "admin" || p.peran === "supervisor" || p.peran === "tenaga_pendidik") await amanMuat(muatSemuaAkun);
+  if(p.peran === "admin" || p.peran === "supervisor") await amanMuat(muatSemuaAkun);
   else await amanMuat(muatDaftarStaf);
 
   if(p.peran === "ppds") await amanMuat(muatPengajuanSemesterSaya);
@@ -550,11 +550,11 @@ async function muatProfilAktif(userId){
 
   await amanMuat(muatLokasi);
   if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatAbsensiSaya);
-  if(p.peran === "supervisor" || p.peran === "admin" || p.peran === "tenaga_pendidik") await amanMuat(muatAbsensiSemua);
+  if(p.peran === "supervisor" || p.peran === "admin") await amanMuat(muatAbsensiSemua);
 
   DB.cuti = [];
   if(p.peran === "ppds" || p.peran === "p3d") await amanMuat(muatCutiSaya);
-  if(p.peran === "admin" || p.peran === "tenaga_pendidik") await amanMuat(muatCutiSemua);
+  if(p.peran === "admin") await amanMuat(muatCutiSemua);
 
   DB.tesis = [];
   if(p.peran === "ppds") await amanMuat(muatTesisSaya);
@@ -822,7 +822,7 @@ function vAkun(){
   const menunggu = DB.users.filter(u => u.statusAkun === "menunggu");
   const aktif = DB.users.filter(u => u.statusAkun === "aktif");
   const ditolak = DB.users.filter(u => u.statusAkun === "ditolak");
-  const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin", tenaga_pendidik:"Tenaga Pendidik"};
+  const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin"};
   const bisaUbahPeran = me().peran === "admin";
   const kartu = u => `<div class="entry">
     <div class="entry-top">
@@ -865,8 +865,8 @@ function vAkun(){
         <td><b>${esc(u.nama)}</b></td><td class="mono" style="font-size:12.5px">${esc(u.email)}</td>
         <td>${labelPeran[u.peran]||u.peran}</td><td>${esc(u.ket)}</td>
         <td style="display:flex; gap:6px; flex-wrap:wrap">${u.id===DB.aktif ? `<span class="muted" style="font-size:12.5px">akun Anda</span>` : `
-          ${(bisaUbahPeran && u.peran!=="tenaga_pendidik" && u.peran!=="admin")
-            ? `<button class="btn btn-o btn-s" data-act="jadikanTendik" data-id="${u.id}">Jadikan Tenaga Pendidik</button>` : ""}
+          ${(bisaUbahPeran && u.peran!=="admin")
+            ? `<button class="btn btn-o btn-s" data-act="jadikanAdmin" data-id="${u.id}">Jadikan Admin</button>` : ""}
           <button class="btn btn-d btn-s" data-act="tolakAkun" data-id="${u.id}">Nonaktifkan</button>`}</td>
       </tr>`).join("")}
     </table></div></div>
@@ -1062,9 +1062,6 @@ const IKON_NAV = {
 function menu(){
   const u = me(), p = u.peran;
   if(p === "supervisor") return [["beranda","Beranda"],["verifikasi","Verifikasi",pendingSaya().length],["peserta","Peserta"],["pantau","Absensi"],["tesis","Tesis"],["semua","Semua Entri"]];
-  if(p === "tenaga_pendidik") return [["beranda","Beranda"],["peserta","Peserta"],["pantau","Absensi"],
-    ["cuti","Cuti & Izin", cutiMenunggu().length],
-    ["akun","Akun", DB.users.filter(x=>x.statusAkun==="menunggu").length]];
   if(p === "admin"){
     const dasar = [["beranda","Beranda"],["peserta","Peserta"],["pantau","Absensi"],
       ["cuti","Cuti & Izin", cutiMenunggu().length],["tesis","Tesis"],
@@ -1088,7 +1085,7 @@ function renderNav(){
   ).join("");
 }
 function renderUsers(){
-  const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin", tenaga_pendidik:"Tenaga Pendidik"};
+  const labelPeran = {ppds:"Peserta PPDS", p3d:"Mahasiswa P3D", supervisor:"Supervisor / DPJP", admin:"Admin"};
   const u = me();
   document.getElementById("siapaAktif").innerHTML =
     `${esc(u.nama)} &middot; ${labelPeran[u.peran]||u.peran} <i>&#9662;</i>`;
@@ -1117,7 +1114,7 @@ function wedge(label, n, target){
 function vBeranda(){
   const u = me();
   if(u.peran === "supervisor") return berandaSupervisor();
-  if(u.peran === "admin" || u.peran === "tenaga_pendidik") return berandaAdmin();
+  if(u.peran === "admin") return berandaAdmin();
 
   const es = entriSaya().filter(e => e.kategori !== "absensi");
   const ver = es.filter(e=>e.status==="terverifikasi");
@@ -2200,7 +2197,7 @@ function vDaftarPeserta(){
 function vPesertaProfil(){
   const u = DB.users.find(x=>x.id===pesertaDibuka);
   if(!u) return `<div class="empty"><b>Peserta tidak ditemukan</b></div>`;
-  const bisaUbahSemester = me().peran === "admin" || me().peran === "tenaga_pendidik";
+  const bisaUbahSemester = me().peran === "admin";
   const oto = semesterOtomatis(u, hariIni());
   const aktif = cutiAktif(u.id);
   const riwayat = u.riwayatPendidikan || [];
@@ -2732,12 +2729,12 @@ document.addEventListener("click", async ev => {
     await muatSemuaAkun(); render();
     toast(`Akun ${u.nama} dinonaktifkan.`); return;
   }
-  if(a==="jadikanTendik"){
+  if(a==="jadikanAdmin"){
     const u = DB.users.find(x=>x.id===b.dataset.id);
-    const { error } = await sb.from("profil").update({ peran: "tenaga_pendidik" }).eq("id", u.id);
+    const { error } = await sb.from("profil").update({ peran: "admin" }).eq("id", u.id);
     if(error){ toast("Gagal mengubah peran: " + error.message); return; }
     await muatSemuaAkun(); render();
-    toast(`${u.nama} sekarang Tenaga Pendidik.`); return;
+    toast(`${u.nama} sekarang Admin.`); return;
   }
   if(a==="simpanProfil"){
     const { error } = await sb.from("profil").update({
@@ -3002,7 +2999,7 @@ function render(){
     beranda:vBeranda, kasus:formKasus, tindakan:formTindakan, ilmiah:formIlmiah,
     jaga:formJaga, riwayat:vRiwayat, verifikasi:vVerifikasi, semua:vSemua, pengaturan:vPengaturan,
     absensi:vAbsensi, pantau:vPantau, akun:vAkun, semester:vSemester, profil:vProfilSaya,
-    cuti: (me().peran==="admin" || me().peran==="tenaga_pendidik") ? vCutiAdmin : vCuti,
+    cuti: me().peran==="admin" ? vCutiAdmin : vCuti,
     tesis: me().peran==="ppds" ? vTesis : vTesisPantau,
     ujian: formUjianTingkat,
     peserta: pesertaDibuka ? vPesertaProfil : vDaftarPeserta
