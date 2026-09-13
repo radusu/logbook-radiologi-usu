@@ -251,6 +251,8 @@ const LABEL_PELAKSANAAN = {
 const TELEGRAM_BOT_USERNAME = "RadiologiFKUSU_BOT";
 // Ubah ke true setelah bot Telegram siap (webhook, env var, cron reminder sudah aktif).
 const FITUR_TELEGRAM_AKTIF = false;
+// Ubah ke false untuk menyembunyikan kartu "Langganan Kalender" jika sudah tidak dipakai.
+const FITUR_LANGGANAN_AKTIF = true;
 
 const JENIS_KEGIATAN = [
   {v:"case_report",            l:"Case Report",                          k:"CR"},
@@ -347,7 +349,7 @@ function tampilkanLogin(){
         ${renderDaftarTanggal()}
       </div>
     </div>
-    ${kartuLangganan()}
+    ${FITUR_LANGGANAN_AKTIF ? kartuLangganan() : ""}
   </div>`;
   if(lupa){
     const kirim = () => kirimLupaSandi();
@@ -752,7 +754,7 @@ function render(){
   const jumlahMenunggu = daftarJadwal.filter(j => j.status === "menunggu").length;
   document.getElementById("isi").innerHTML = `
     ${FITUR_TELEGRAM_AKTIF ? kartuTelegram() : ""}
-    ${kartuLangganan()}
+    ${FITUR_LANGGANAN_AKTIF ? kartuLangganan() : ""}
     ${bisaUnggah() ? formAjukan() : ""}
     ${moderasi ? `<div class="tabs-admin">
       <button data-act="tabAdminKalender" aria-pressed="${tabAdmin!=="menunggu"}">Kalender</button>
