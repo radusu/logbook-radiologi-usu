@@ -160,7 +160,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.1.0</footer>
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU v1.2.0</footer>
 <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -345,6 +345,7 @@ function tampilkanLogin(){
         ${renderDaftarTanggal()}
       </div>
     </div>
+    ${kartuLangganan()}
   </div>`;
   if(lupa){
     const kirim = () => kirimLupaSandi();
@@ -566,6 +567,32 @@ function kartuTelegram(){
   </div>`;
 }
 
+function kartuLangganan(){
+  const urlHttps = window.location.origin + "/kalender.ics";
+  const urlWebcal = urlHttps.replace(/^https?:\/\//, "webcal://");
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h2>Langganan di Kalender iPhone / Google</h2></div>
+    <div class="card-b">
+      <p style="margin:0 0 12px">Sambungkan sekali, kegiatan yang sudah disetujui akan otomatis muncul di aplikasi Kalender Anda dan selalu ter-update — tidak perlu buka halaman ini lagi.</p>
+      <a class="btn btn-p" href="${urlWebcal}" style="display:inline-block; text-decoration:none">Tambahkan ke Kalender iPhone</a>
+      <div class="field" style="margin-top:12px"><label>Atau salin alamat ini (Google Calendar / Outlook)</label>
+        <input type="text" readonly value="${urlHttps}" id="langganan-url" onclick="this.select()"></div>
+      <button class="btn btn-o btn-s" id="btn-salin-langganan" style="margin-top:8px">Salin alamat</button>
+    </div>
+  </div>`;
+}
+
+async function salinAlamatLangganan(){
+  const kolom = document.getElementById("langganan-url");
+  try{
+    await navigator.clipboard.writeText(kolom.value);
+    toast("Alamat kalender disalin.");
+  }catch(e){
+    kolom.select();
+    toast("Tekan Ctrl+C / Cmd+C untuk menyalin.");
+  }
+}
+
 function formAjukan(){
   return `<div class="card" style="margin-bottom:16px">
     <div class="card-h"><h2>Ajukan kegiatan baru</h2></div>
@@ -723,6 +750,7 @@ function render(){
   const jumlahMenunggu = daftarJadwal.filter(j => j.status === "menunggu").length;
   document.getElementById("isi").innerHTML = `
     ${kartuTelegram()}
+    ${kartuLangganan()}
     ${bisaUnggah() ? formAjukan() : ""}
     ${moderasi ? `<div class="tabs-admin">
       <button data-act="tabAdminKalender" aria-pressed="${tabAdmin!=="menunggu"}">Kalender</button>
@@ -818,6 +846,7 @@ document.addEventListener("click", ev => {
   if(authtab){ modeAuth = authtab.dataset.authtab; tampilkanLogin(); return; }
   if(ev.target && ev.target.id === "btn-ajukan"){ ajukanKegiatan(); return; }
   if(ev.target && ev.target.id === "btn-putus-telegram"){ putuskanTelegram(); return; }
+  if(ev.target && ev.target.id === "btn-salin-langganan"){ salinAlamatLangganan(); return; }
   const b = ev.target.closest("[data-act]");
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
