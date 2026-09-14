@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kalender Kegiatan Radiologi FK USU</title>
+<title>Kalender Kegiatan Radiologi Fakultas Kedokteran Universitas Sumatera Utara</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzExMTExMSIvPgogIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQ0IiBmaWxsPSIjRkZDQzAwIi8+CiAgPHBhdGggZD0iTTUwLDUwIEwyOSwxMy42IEE0Miw0MiAwIDAsMSA3MSwxMy42IFoiIGZpbGw9IiMxMTExMTEiLz4KICA8cGF0aCBkPSJNNTAsNTAgTDkyLDUwIEE0Miw0MiAwIDAsMSA3MSw4Ni40IFoiIGZpbGw9IiMxMTExMTEiLz4KICA8cGF0aCBkPSJNNTAsNTAgTDI5LDg2LjQgQTQyLDQyIDAgMCwxIDgsNTAgWiIgZmlsbD0iIzExMTExMSIvPgogIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjkiIGZpbGw9IiMxMTExMTEiLz4KPC9zdmc+Cg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -219,7 +219,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
 </header>
 
 <main>
-  <h1 id="judulUtama">Kalender Kegiatan Radiologi FK USU</h1>
+  <h1 id="judulUtama">Kalender Kegiatan Radiologi Fakultas Kedokteran Universitas Sumatera Utara</h1>
   <div id="sapaanKalender" class="card kartu-sapaan" hidden>
     <h2 id="sapaanNama" style="font-size:24px; color:var(--usu-deep); margin:0"></h2>
     <div>
@@ -230,7 +230,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
   <div id="isi"><div class="empty">Memuat…</div></div>
 </main>
 
-<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU
+<footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi Fakultas Kedokteran Universitas Sumatera Utara
   <a href="#" id="tautanVersi" onclick="return false" style="color:inherit; text-decoration:underline">v<span id="teksVersi"></span></a></footer>
 <div class="rail-tabs">
   <!-- Logbook & Panel Admin hanya tampil untuk akun berperan Admin (diatur lewat JS di perbaruiTombolAkun()). -->
@@ -491,15 +491,15 @@ const APP_VERSION = "2.1.0";
 const RIWAYAT_VERSI = [
   {v:"2.1.0", catatan:[
     "Pembaruan tampilan: halaman kini menyapa dengan nama Anda dan waktu (pagi/siang/sore/malam) setelah masuk, lengkap dengan jam berjalan besar di kartu sapaan dan jam & tanggal di bagian atas halaman",
-    "Sudut kartu dan kotak isian kini lebih membulat dan lembut, senada dengan Logbook",
-    "Jadwal Morning Report per minggu kini diberi nomor (Minggu 1, Minggu 2, dst.) selain rentang tanggalnya"
+    "Pembaruan tampilan: Sudut kartu dan kotak isian kini lebih membulat dan lembut, senada dengan Logbook",
+    "Pembaruan tampilan: Jadwal Morning Report per minggu kini diberi nomor (Minggu 1, Minggu 2, dst.) selain rentang tanggalnya"
   ]},
   {v:"2.0.1", catatan:[
     "Jadwal Morning Report kini tampil rapi sebagai tab tersendiri di kalender, dikelompokkan per minggu"
   ]},
   {v:"2.0.0", catatan:[
-    "Tampilan header disamakan dengan Logbook",
-    "Tab \"Sinkronisasi Kalender\" diubah jadi \"Sinkron ke Kalender Perangkat\""
+    "Pembaruan tampilan: Tampilan header disamakan dengan Logbook",
+    "Pembaruan tampilan: Tab \"Sinkronisasi Kalender\" diubah jadi \"Sinkron ke Kalender Perangkat\""
   ]},
   {v:"1.0.0 – 1.10.0", catatan:[
     "Rilis awal Kalender Akademik, terpisah dari Logbook dengan login/daftar sendiri",
@@ -515,7 +515,7 @@ function tampilkanRiwayatVersi(hanyaTerbaru){
   const daftar = hanyaTerbaru ? [RIWAYAT_VERSI[0]] : RIWAYAT_VERSI;
   document.getElementById("isiModalVersi").innerHTML = `
     <h2 style="margin-bottom:2px">${hanyaTerbaru ? "Ada pembaruan!" : "Riwayat Versi"}</h2>
-    <p class="muted" style="font-size:13px; margin:0 0 16px">Kalender Kegiatan Radiologi FK USU</p>
+    <p class="muted" style="font-size:13px; margin:0 0 16px">Kalender Kegiatan Radiologi Fakultas Kedokteran Universitas Sumatera Utara</p>
     ${daftar.map(r => `<div class="versi-blok">
       <div class="eyebrow">Versi ${esc(r.v)}</div>
       <ul>${r.catatan.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
@@ -567,7 +567,7 @@ function tampilkanLogin(){
   <div class="pra-masuk">
     <div class="login-box"><div class="card"><div class="card-b">
       <img class="login-logo" src="${LOGO_USU_B64}" alt="Lambang Universitas Sumatera Utara">
-      <h1>Kalender Kegiatan Radiologi FK USU</h1>
+      <h1>Kalender Kegiatan Radiologi Fakultas Kedokteran Universitas Sumatera Utara</h1>
       ${lupa ? `<p class="sub-login">Lupa Kata Sandi</p>` : ""}
       ${lupa ? "" : `
       <div class="tabs-auth">
