@@ -569,6 +569,7 @@ const sandiKuat = t => String(t||"").length >= 8
 const tglID = s => { if(!s) return "—"; const d=new Date(s+"T00:00:00");
   return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}); };
 const hariIni = () => new Date().toISOString().slice(0,10);
+const tglMinus = (tgl, hari) => { const d = new Date(tgl+"T00:00:00"); d.setDate(d.getDate()-hari); return d.toISOString().slice(0,10); };
 
 function toast(msg){
   const t = document.getElementById("toast");
@@ -1003,7 +1004,7 @@ function vAkun(){
       <tr>${thUrut("Nama","nama")}<th>Email</th><th>Status</th>${thUrut("Keterangan","semester")}<th></th></tr>
       ${aktif.map(u=>`<tr>
         <td><b>${esc(u.nama)}</b></td><td class="mono" style="font-size:12.5px">${esc(u.email)}</td>
-        <td>${labelPeran[u.peran]||u.peran}</td><td>${esc(u.ket)}</td>
+        <td>${labelPeran[u.peran]||u.peran}</td><td>${u.peran==="ppds" ? esc(labelSemester(u)) : esc(u.ket)}</td>
         <td style="display:flex; gap:6px; flex-wrap:wrap">${u.id===DB.aktif ? `<span class="muted" style="font-size:12.5px">akun Anda</span>` : `
           ${(bisaUbahPeran && u.peran!=="admin")
             ? `<button class="btn btn-o btn-s" data-act="jadikanAdmin" data-id="${u.id}">Jadikan Admin</button>` : ""}
@@ -1051,7 +1052,7 @@ function vProfilSaya(){
         ${F("Tempat lahir", `<input type="text" id="p-tempat" value="${esc(u.tempatLahir||'')}">`)}
         ${F("Tanggal lahir", `<input type="date" id="p-tanggal" value="${esc(u.tanggalLahir||'')}">`)}
       </div>
-      ${F("Keterangan", `<input type="text" id="p-ket" value="${esc(u.ket==='—'?'':u.ket)}" placeholder="Contoh: PPDS Semester III">`)}
+      ${u.peran!=="ppds" ? F("Keterangan", `<input type="text" id="p-ket" value="${esc(u.ket==='—'?'':u.ket)}" placeholder="Contoh: Mahasiswa P3D">`) : ""}
       <button class="btn btn-p" data-act="simpanProfil">Simpan data diri</button>
     </div>
   </div>
@@ -1128,24 +1129,22 @@ function semesterOtomatis(u, tgl){
   return Math.max(1, Math.floor(efektif / HARI_SEMESTER) + 1);
 }
 
-// Selisih bila Admin menetapkan semester secara manual.
-function selisihManual(u){
-  if(u.semesterManual == null) return 0;
-  const oto = semesterOtomatis(u, hariIni());
-  return oto == null ? 0 : u.semesterManual - oto;
-}
-function semesterPada(u, tgl){
-  const oto = semesterOtomatis(u, tgl);
-  if(oto == null) return null;
-  return Math.max(1, oto + selisihManual(u));
-}
+const semesterPada = (u, tgl) => semesterOtomatis(u, tgl);
 const semesterKini = u => semesterPada(u, hariIni());
+
+// Tanggal mulai pendidikan yang setara untuk seseorang yang, per hari ini,
+// ada di semester tertentu -- dipakai saat Admin menetapkan/mengoreksi
+// semester (bukan lagi lewat semester_manual, supaya hitungan tetap
+// otomatis naik terus ke depan, tidak membeku di angka itu).
+function mulaiPendidikanUntukSemester(semester, tgl){
+  return tglMinus(tgl, Math.round((semester - 0.5) * HARI_SEMESTER));
+}
 
 function labelSemester(u){
   const sm = semesterKini(u);
   if(u.peran === "p3d") return u.ket;
   if(sm == null) return "Tanggal mulai pendidikan belum diisi";
-  return `Semester ${sm}` + (u.semesterManual != null ? " (ditetapkan manual)" : "");
+  return `Semester ${sm}`;
 }
 
 // Cuti yang sedang berlangsung hari ini.
@@ -1311,7 +1310,7 @@ function vBeranda(){
       <div class="card-h" style="background:var(--usu-soft); border-bottom-color:rgba(4,81,42,.12); justify-content:space-between">
         <div>
           <h2 style="color:var(--usu-deep); font-size:24px">${sapaWaktu()}, ${esc(namaDepan(u.nama))}</h2>
-          <span class="sub mono" style="color:var(--usu-deep); margin-left:0">${esc(u.nim)} &middot; ${esc(u.ket)}</span>
+          <span class="sub mono" style="color:var(--usu-deep); margin-left:0">${esc(u.nim)} &middot; ${esc(u.peran==="ppds" ? labelSemester(u) : u.ket)}</span>
         </div>
         <div>
           <time id="jamBeranda" class="jam-beranda" aria-hidden="true"></time>
@@ -2517,7 +2516,7 @@ function vPesertaProfil(){
           <div><dt>NIM / NPM</dt><dd>${esc(u.nim)}</dd></div>
           <div><dt>NIK</dt><dd>${esc(u.nik||"—")}</dd></div>
           <div><dt>Tempat, tanggal lahir</dt><dd>${esc(u.tempatLahir||"—")}${u.tanggalLahir?", "+tglID(u.tanggalLahir):""}</dd></div>
-          <div><dt>Keterangan</dt><dd>${esc(u.ket)}</dd></div>
+          ${u.peran!=="ppds" ? `<div><dt>Keterangan</dt><dd>${esc(u.ket)}</dd></div>` : ""}
         </dl></div></div>
       <div class="card" style="margin-bottom:14px"><div class="card-h"><h2>Riwayat pendidikan</h2></div>
         <div class="card-b">
@@ -2529,20 +2528,20 @@ function vPesertaProfil(){
       ${bisaUbahSemester ? `
       <div class="card"><div class="card-h"><h2>Atur semester</h2></div>
         <div class="card-b">
-          ${F("Tanggal mulai pendidikan", `<input type="date" id="p-mulai" value="${u.mulaiPendidikan||""}">`,
-            "Dipakai untuk menghitung semester otomatis.")}
           <div class="terkunci" style="margin-bottom:13px">
-            <span class="eyebrow">Hasil hitungan otomatis</span>
+            <span class="eyebrow">Semester saat ini</span>
             <div style="font-size:15px; margin-top:4px"><b>${oto!=null?"Semester "+oto:"belum dapat dihitung"}</b></div>
             <div class="muted" style="font-size:12.5px; margin-top:3px">
-              Sudah dikurangi ${hariCutiSampai(u.id, hariIni())} hari cuti yang memperpanjang masa pendidikan.</div>
+              Sudah dikurangi ${hariCutiSampai(u.id, hariIni())} hari cuti yang memperpanjang masa pendidikan. Naik otomatis setiap ~6 bulan.</div>
           </div>
-          ${u.peran==="ppds" ? F("Semester", `<select id="p-manual">
-              <option value="">Ikuti hitungan otomatis</option>
+          ${F("Tetapkan ke semester (per hari ini)", `<select id="p-manual">
+              <option value="">Jangan ubah</option>
               ${Array.from({length:12},(_,i)=>i+1).map(n=>
-                `<option value="${n}" ${String(u.semesterManual)===String(n)?"selected":""}>Semester ${n}</option>`).join("")}
+                `<option value="${n}">Semester ${n}</option>`).join("")}
             </select>`,
-            "Pilih hanya bila semester peserta berbeda dari hitungan otomatis, misalnya karena pindahan atau perpanjangan khusus.") : ""}
+            "Pilih hanya bila semester peserta perlu dikoreksi, misalnya karena pindahan. Sejak saat itu semester akan tetap naik otomatis, tidak berhenti di angka ini.")}
+          ${F("Atau: tanggal mulai pendidikan yang sebenarnya", `<input type="date" id="p-mulai" value="${u.mulaiPendidikan||""}">`,
+            "Isi kalau tahu tanggal pastinya. Kalau di atas dipilih, kolom ini diabaikan.")}
           <button class="btn btn-p" data-act="simpanSemester" data-id="${u.id}">Simpan</button>
         </div></div>` : ""}
     </div>
@@ -2875,22 +2874,28 @@ document.addEventListener("click", async ev => {
     const peranDipilih = val("d-peran");
     if(!n){ toast("Nama lengkap wajib diisi."); return; }
     if(!em || em.indexOf("@") < 1){ toast("Masukkan alamat email yang benar."); return; }
-    let ket = null;
+    let semesterAwal = null;
     if(peranDipilih === "ppds"){
       const smt = val("d-semester");
       if(!smt){ toast("Pilih semester saat ini."); return; }
-      ket = "Semester " + smt;
+      semesterAwal = Number(smt);
     }
     if(!sandiKuat(sd)){ toast("Kata sandi minimal 8 karakter dan wajib memuat huruf besar, huruf kecil, angka, dan simbol."); return; }
     if(sd !== sd2){ toast("Kata sandi dan ulangannya belum sama."); return; }
-    const { error } = await sb.auth.signUp({
+    const { data, error } = await sb.auth.signUp({
       email: em, password: sd,
       options: { data: {
-        nama: n, nim: val("d-nim") || null,
-        peran: peranDipilih, keterangan: ket
+        nama: n, nim: val("d-nim") || null, peran: peranDipilih
       } }
     });
     if(error){ toast(error.message === "User already registered" ? "Email ini sudah terdaftar." : "Pendaftaran gagal: " + error.message); return; }
+    if(semesterAwal != null && data?.user?.id){
+      // Terbaik-upaya: kalau sesi belum aktif (perlu konfirmasi email dulu),
+      // Admin tinggal menetapkan semesternya lewat "Atur semester" saat meninjau.
+      try{ await sb.from("profil").update({
+        mulai_pendidikan: mulaiPendidikanUntukSemester(semesterAwal, hariIni())
+      }).eq("id", data.user.id); }catch(e){}
+    }
     daftarPeran = "ppds";
     modeLogin = "masuk";
     toast("Pendaftaran terkirim. Menunggu persetujuan Admin.");
@@ -3006,14 +3011,13 @@ document.addEventListener("click", async ev => {
   if(a==="eksporPeserta"){ eksporPeserta(id); return; }
   if(a==="simpanSemester"){
     const u = DB.users.find(x=>x.id===id);
-    const mulaiPendidikan = val("p-mulai") || null;
     const m = val("p-manual");
-    const semesterManual = m === "" ? null : Math.max(1, Number(m));
+    const mulaiPendidikan = m !== "" ? mulaiPendidikanUntukSemester(Number(m), hariIni()) : (val("p-mulai") || null);
     const { error } = await sb.from("profil").update({
-      mulai_pendidikan: mulaiPendidikan, semester_manual: semesterManual
+      mulai_pendidikan: mulaiPendidikan, semester_manual: null
     }).eq("id", id);
     if(error){ toast("Gagal menyimpan: " + error.message); return; }
-    u.mulaiPendidikan = mulaiPendidikan; u.semesterManual = semesterManual;
+    u.mulaiPendidikan = mulaiPendidikan; u.semesterManual = null;
     toast(`Data ${u.nama} diperbarui: ${labelSemester(u)}.`); render(); return;
   }
   if(a==="setujuiAkun"){

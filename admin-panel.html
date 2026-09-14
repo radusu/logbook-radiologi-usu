@@ -217,6 +217,12 @@ const JENIS_KEGIATAN = [
   {v:"ujian_koas",             l:"Ujian Koas"}
 ];
 const kegiatanByValue = v => JENIS_KEGIATAN.find(j => j.v === v);
+function semesterAkun(u){
+  if(u.peran !== "ppds" || !u.mulai_pendidikan) return null;
+  const hari = Math.round((new Date() - new Date(u.mulai_pendidikan+"T00:00:00")) / 86400000);
+  if(hari < 0) return null;
+  return Math.max(1, Math.floor(hari / 182.6) + 1);
+}
 function toast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("on");
@@ -446,15 +452,18 @@ function halamanAkun(){
     </div>
   </div>`;
 
-  const kartuAktif = u => `<div class="entry">
+  const kartuAktif = u => { const ket = u.peran === "ppds"
+      ? (semesterAkun(u) != null ? "Semester " + semesterAkun(u) : "Tanggal mulai pendidikan belum diisi")
+      : u.keterangan;
+    return `<div class="entry">
     <div class="entry-top"><span class="pill p-ver">${LABEL_PERAN[u.peran] || u.peran}</span>${u.id===profilSaya.id ? `<span class="muted" style="font-size:12.5px; color:var(--mist)">akun Anda</span>` : ""}</div>
     <h4>${esc(u.nama)}</h4>
-    <div class="meta">${esc(u.email)}${u.keterangan ? " &middot; " + esc(u.keterangan) : ""}</div>
+    <div class="meta">${esc(u.email)}${ket ? " &middot; " + esc(ket) : ""}</div>
     ${u.id===profilSaya.id ? "" : `<div class="acts">
       ${(profilSaya.super_admin && u.peran!=="admin") ? `<button class="btn btn-o btn-s" data-act="jadikanAdmin" data-id="${u.id}">Jadikan Admin</button>` : ""}
       <button class="btn btn-d btn-s" data-act="nonaktifkanAkun" data-id="${u.id}">Nonaktifkan</button>
     </div>`}
-  </div>`;
+  </div>`; };
 
   const kartuDitolak = u => `<div class="entry">
     <h4>${esc(u.nama)}</h4>
