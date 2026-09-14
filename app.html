@@ -369,6 +369,8 @@ tr:last-child td{border-bottom:0}
 .rail-beranda:hover{background:#1B2229}
 .rail-kalender{background:var(--usu)}
 .rail-kalender:hover{background:#0c8449}
+.rail-panel{background:var(--amber)}
+.rail-panel:hover{background:#7a4d08}
 @media (max-width:640px){.rail-tabs a{padding:12px 6px; font-size:10px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 @media print{.topbar,.nav,.acts,.btn{display:none!important} body{background:#fff}}
@@ -399,6 +401,8 @@ tr:last-child td{border-bottom:0}
 <footer class="app-footer">&copy; 2026 Vicky &middot; Logbook Radiologi FK USU
   <a href="#" id="tautanVersi" onclick="return false" style="color:inherit; text-decoration:underline">v<span id="teksVersi"></span></a></footer>
 <div class="rail-tabs">
+  <!-- Panel Admin hanya tampil untuk akun berperan Admin (diatur lewat JS di renderUsers()). -->
+  <a class="rail-panel" href="admin-panel.html" title="Buka Panel Admin" id="railPanelAdmin" hidden>Panel Admin</a>
   <a class="rail-kalender" href="kalender-akademik.html" title="Buka Kalender Akademik">Kalender Akademik</a>
   <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 </div>
@@ -1229,6 +1233,7 @@ function renderUsers(){
   document.getElementById("siapaAktif").innerHTML =
     `${esc(u.nama)} &middot; ${labelPeran[u.peran]||u.peran} <i>&#9662;</i>`;
   document.getElementById("akunMenu").hidden = !akunMenuTerbuka;
+  document.getElementById("railPanelAdmin").hidden = u.peran !== "admin";
 }
 
 /* ============ 6. STEP WEDGE (indikator capaian) ============ */
@@ -3435,6 +3440,7 @@ setInterval(() => {
       editNilaiId = null;
       kontenJenis = "berita"; editKontenId = null;
       filterTabelLog = "semua"; logDibuka = null;
+      document.getElementById("railPanelAdmin").hidden = true;
     }
     render();
   });

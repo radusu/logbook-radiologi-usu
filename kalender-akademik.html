@@ -78,6 +78,8 @@ button,input{font-family:inherit; font-size:inherit; color:inherit}
 .rail-beranda:hover{background:#1B2229}
 .rail-logbook{background:var(--usu-deep)}
 .rail-logbook:hover{background:#04512A}
+.rail-panel{background:var(--amber)}
+.rail-panel:hover{background:#7a4d08}
 @media (max-width:640px){.rail-tabs a{padding:12px 6px; font-size:10px}}
 
 main{max-width:820px; margin:0 auto; padding:26px 20px 70px; transition:max-width .15s}
@@ -231,8 +233,9 @@ body.bg-foto .login-box h1{color:var(--ink)}
 <footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU
   <a href="#" id="tautanVersi" onclick="return false" style="color:inherit; text-decoration:underline">v<span id="teksVersi"></span></a></footer>
 <div class="rail-tabs">
-  <!-- Disembunyikan sementara: PPDS belum boleh mengakses Logbook. Hapus atribut "hidden" untuk menampilkan kembali. -->
-  <a class="rail-logbook" href="app.html" title="Buka Logbook" hidden>Logbook</a>
+  <!-- Logbook & Panel Admin hanya tampil untuk akun berperan Admin (diatur lewat JS di perbaruiTombolAkun()). -->
+  <a class="rail-panel" href="admin-panel.html" title="Buka Panel Admin" id="railPanelAdmin" hidden>Panel Admin</a>
+  <a class="rail-logbook" href="app.html" title="Buka Logbook" id="railLogbook" hidden>Logbook</a>
   <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -756,6 +759,9 @@ async function muatProfilDanRender(userId){
 function perbaruiTombolAkun(){
   document.getElementById("siapaAktif").innerHTML =
     `${esc(profilSaya.nama)} &middot; ${labelPeran(profilSaya.peran)} <i>&#9662;</i>`;
+  const admin = profilSaya.peran === "admin";
+  document.getElementById("railPanelAdmin").hidden = !admin;
+  document.getElementById("railLogbook").hidden = !admin;
 }
 
 async function tampilkanPublikDanLogin(){
@@ -768,6 +774,8 @@ async function tampilkanPublikDanLogin(){
   mrPembimbing = "";
   mrTanggalTercentang = new Set();
   mrBulan = null;
+  document.getElementById("railPanelAdmin").hidden = true;
+  document.getElementById("railLogbook").hidden = true;
   await muatJadwal();
   tampilkanLogin();
 }
