@@ -243,6 +243,7 @@ body.bg-foto .login-box h1{color:var(--ink)}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <script>
 "use strict";
 
@@ -1285,6 +1286,10 @@ function halamanInputMR(){
       </div>
       <p class="hint" style="margin:12px 0"><b>${mrTanggalTercentang.size}</b> tanggal dipilih.</p>
       <button class="btn btn-p" id="btn-input-mr">Input Semua (${mrTanggalTercentang.size})</button>
+      <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--line2)">
+        <p class="hint" style="margin-top:0">Sudah selesai input jadwal bulan ${bulanLabel}? Unduh sebagai surat Word (.docx) siap cetak -- format tabel sama seperti surat resmi, tanda tangan dikosongkan untuk diisi & ditandatangani lewat prosedur resmi.</p>
+        <button class="btn btn-o" id="btn-ekspor-mr">Ekspor Jadwal ${bulanLabel} ke Word (.docx)</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1356,6 +1361,108 @@ function render(){
 // diklik baik oleh pengguna yang sudah masuk maupun pengunjung yang belum masuk.
 function renderUlang(){
   if(profilSaya) render(); else tampilkanLogin();
+}
+
+function base64ParaUint8(base64DataUri){
+  const base64 = base64DataUri.includes(",") ? base64DataUri.split(",")[1] : base64DataUri;
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// Membuat draf surat jadwal Morning Report (.docx) untuk bulan yang sedang
+// ditampilkan di tab Input Morning Report -- format tabel meniru surat resmi
+// yang biasa dikirim Prodi. Bagian tanda tangan SENGAJA dikosongkan (bukan
+// tanda tangan elektronik asli) -- diisi & ditandatangani lewat prosedur resmi.
+async function eksporJadwalMR(){
+  if(typeof docx === "undefined"){ toast("Pustaka Word gagal dimuat. Coba muat ulang halaman."); return; }
+  const kunci = mrBulan.getFullYear() + "-" + String(mrBulan.getMonth()+1).padStart(2, "0");
+  const daftar = daftarJadwal.filter(j => j.jenis_kegiatan === "morning_report" && j.tanggal.slice(0, 7) === kunci);
+  if(!daftar.length){ toast("Belum ada jadwal Morning Report bulan ini untuk diekspor."); return; }
+
+  const perPembimbing = {};
+  daftar.forEach(j => {
+    const nm = j.nama_pembimbing || "(belum diisi)";
+    (perPembimbing[nm] = perPembimbing[nm] || []).push(j.tanggal);
+  });
+  const namaUrut = [
+    ...DAFTAR_PEMBIMBING.filter(n => perPembimbing[n]),
+    ...Object.keys(perPembimbing).filter(n => !DAFTAR_PEMBIMBING.includes(n))
+  ];
+
+  const bulanLabel = mrBulan.toLocaleDateString("id-ID", {month:"long", year:"numeric"});
+  const fmtHari = tgls => {
+    const hari = tgls.map(t => +t.slice(8, 10)).sort((a, b) => a - b);
+    return hari.length === 1
+      ? `${hari[0]} ${bulanLabel}`
+      : `${hari.slice(0, -1).join(",")} dan ${hari[hari.length - 1]} ${bulanLabel}`;
+  };
+
+  const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
+          WidthType, AlignmentType, BorderStyle } = docx;
+  const tanpaGaris = {style: BorderStyle.NONE, size:0, color:"FFFFFF"};
+
+  const headerTable = new Table({
+    width: {size:100, type:WidthType.PERCENTAGE},
+    borders: {top:tanpaGaris, bottom:{style:BorderStyle.SINGLE, size:8, color:"000000"}, left:tanpaGaris, right:tanpaGaris, insideHorizontal:tanpaGaris, insideVertical:tanpaGaris},
+    rows: [new TableRow({children: [
+      new TableCell({width:{size:15, type:WidthType.PERCENTAGE}, children:[
+        new Paragraph({children:[new ImageRun({type:"png", data:base64ParaUint8(LOGO_USU_B64), transformation:{width:60, height:60}})]})
+      ]}),
+      new TableCell({width:{size:85, type:WidthType.PERCENTAGE}, children:[
+        new Paragraph({children:[new TextRun({text:"UNIVERSITAS SUMATERA UTARA", bold:true, size:26})]}),
+        new Paragraph({children:[new TextRun({text:"FAKULTAS KEDOKTERAN", bold:true, size:26})]}),
+        new Paragraph({children:[new TextRun({text:"PROGRAM STUDI RADIOLOGI", bold:true, size:26})]})
+      ]})
+    ]})]
+  });
+
+  const barisTabel = [new TableRow({children:[
+    new TableCell({children:[new Paragraph({text:"No", alignment:AlignmentType.CENTER})]}),
+    new TableCell({children:[new Paragraph({text:"Nama"})]}),
+    new TableCell({children:[new Paragraph({text:"Tanggal"})]})
+  ]})];
+  namaUrut.forEach((n, i) => {
+    barisTabel.push(new TableRow({children:[
+      new TableCell({children:[new Paragraph({text:String(i+1), alignment:AlignmentType.CENTER})]}),
+      new TableCell({children:[new Paragraph({text:n})]}),
+      new TableCell({children:[new Paragraph({text:fmtHari(perPembimbing[n])})]})
+    ]}));
+  });
+  const tabelJadwal = new Table({width:{size:100, type:WidthType.PERCENTAGE}, rows:barisTabel});
+
+  const kosong = () => new Paragraph({text:"", spacing:{after:160}});
+  const doc = new Document({sections:[{properties:{}, children:[
+    headerTable, kosong(),
+    new Paragraph({children:[new TextRun("No : ")]}),
+    new Paragraph({children:[new TextRun("Hal : Kegiatan Laporan Pagi (morning report).")]}),
+    new Paragraph({children:[new TextRun(`         PPDS Radiologi FK-USU Bulan ${bulanLabel}`)]}),
+    kosong(),
+    new Paragraph({children:[new TextRun("Yth. Staf Pengajar Program Studi Radiologi")]}),
+    new Paragraph({children:[new TextRun("Fakultas Kedokteran Universitas Sumatera Utara")]}),
+    new Paragraph({children:[new TextRun("RS. USU dan RS. Adam Malik")]}),
+    new Paragraph({children:[new TextRun("Medan")]}),
+    kosong(),
+    new Paragraph({children:[new TextRun(`Dengan hormat, bersama ini kami beritahukan kepada seluruh Staf Pengajar Program Studi Radiologi Fakultas Kedokteran Universitas Sumatera Utara/RS.USU dan RS.Adam Malik Medan, untuk kesediaannya menjadi supervisor/dosen pembimbing pada acara ilmiah laporan pagi (morning report) yang dilaksanakan pada bulan ${bulanLabel}, mulai jam 08.00 - 10.00 WIB bertempat di RS. Adam Malik Medan atau RS USU Medan, sesuai dengan jadwal yang tertera di bawah ini:`)]}),
+    kosong(),
+    tabelJadwal, kosong(),
+    new Paragraph({children:[new TextRun("Demikian pemberitahuan ini kami sampaikan, atas perhatian dan kerjasamanya diucapkan terima kasih.")]}),
+    new Paragraph({text:"", spacing:{after:500}}),
+    new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun(`Medan, ${new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}`)]}),
+    new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun("Ketua Program Studi Radiologi")]}),
+    new Paragraph({text:"", spacing:{after:900}}),
+    new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun("(_________________________)")]}),
+    new Paragraph({alignment:AlignmentType.RIGHT, children:[new TextRun("NIP.")]})
+  ]}]});
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `Jadwal Morning Report ${bulanLabel}.docx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("Berkas Word berhasil diunduh.");
 }
 
 async function simpanInputMR(){
@@ -1497,6 +1604,7 @@ document.addEventListener("click", ev => {
   if(ev.target && ev.target.id === "btn-tambah-riwayat"){ draftRiwayat.push({jenjang:"",institusi:"",tahun:""}); render(); return; }
   if(ev.target && ev.target.id === "btn-simpan-riwayat"){ simpanRiwayatKalender(); return; }
   if(ev.target && ev.target.id === "btn-input-mr"){ simpanInputMR(); return; }
+  if(ev.target && ev.target.id === "btn-ekspor-mr"){ eksporJadwalMR(); return; }
   const b = ev.target.closest("[data-act]");
   if(!b) return;
   if(b.dataset.act === "tabAdminKalender"){ tabAdmin = "kalender"; render(); return; }
@@ -1518,7 +1626,6 @@ document.addEventListener("click", ev => {
     if(mrTanggalTercentang.has(tgl)) mrTanggalTercentang.delete(tgl); else mrTanggalTercentang.add(tgl);
     render(); return;
   }
-  if(ev.target && ev.target.id === "btn-input-mr"){ simpanInputMR(); return; }
   const id = b.dataset.id;
   if(b.dataset.act === "setujui") setujuiJadwal(id);
   if(b.dataset.act === "tolak") tolakJadwal(id);
