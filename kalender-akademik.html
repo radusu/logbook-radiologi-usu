@@ -231,7 +231,8 @@ body.bg-foto .login-box h1{color:var(--ink)}
 <footer class="app-footer">&copy; 2026 Vicky &middot; Kalender Kegiatan Radiologi FK USU
   <a href="#" id="tautanVersi" onclick="return false" style="color:inherit; text-decoration:underline">v<span id="teksVersi"></span></a></footer>
 <div class="rail-tabs">
-  <a class="rail-logbook" href="app.html" title="Buka Logbook">Logbook</a>
+  <!-- Disembunyikan sementara: PPDS belum boleh mengakses Logbook. Hapus atribut "hidden" untuk menampilkan kembali. -->
+  <a class="rail-logbook" href="app.html" title="Buka Logbook" hidden>Logbook</a>
   <a class="rail-beranda" href="index.html" title="Kembali ke Beranda">&larr; Beranda</a>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1363,14 +1364,6 @@ function renderUlang(){
   if(profilSaya) render(); else tampilkanLogin();
 }
 
-function base64ParaUint8(base64DataUri){
-  const base64 = base64DataUri.includes(",") ? base64DataUri.split(",")[1] : base64DataUri;
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
 // Membuat draf surat jadwal Morning Report (.docx) untuk bulan yang sedang
 // ditampilkan di tab Input Morning Report -- format tabel meniru surat resmi
 // yang biasa dikirim Prodi. Bagian tanda tangan SENGAJA dikosongkan (bukan
@@ -1399,24 +1392,8 @@ async function eksporJadwalMR(){
       : `${hari.slice(0, -1).join(",")} dan ${hari[hari.length - 1]} ${bulanLabel}`;
   };
 
-  const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
-          WidthType, AlignmentType, BorderStyle } = docx;
-  const tanpaGaris = {style: BorderStyle.NONE, size:0, color:"FFFFFF"};
-
-  const headerTable = new Table({
-    width: {size:100, type:WidthType.PERCENTAGE},
-    borders: {top:tanpaGaris, bottom:{style:BorderStyle.SINGLE, size:8, color:"000000"}, left:tanpaGaris, right:tanpaGaris, insideHorizontal:tanpaGaris, insideVertical:tanpaGaris},
-    rows: [new TableRow({children: [
-      new TableCell({width:{size:15, type:WidthType.PERCENTAGE}, children:[
-        new Paragraph({children:[new ImageRun({type:"png", data:base64ParaUint8(LOGO_USU_B64), transformation:{width:60, height:60}})]})
-      ]}),
-      new TableCell({width:{size:85, type:WidthType.PERCENTAGE}, children:[
-        new Paragraph({children:[new TextRun({text:"UNIVERSITAS SUMATERA UTARA", bold:true, size:26})]}),
-        new Paragraph({children:[new TextRun({text:"FAKULTAS KEDOKTERAN", bold:true, size:26})]}),
-        new Paragraph({children:[new TextRun({text:"PROGRAM STUDI RADIOLOGI", bold:true, size:26})]})
-      ]})
-    ]})]
-  });
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+          WidthType, AlignmentType } = docx;
 
   const barisTabel = [new TableRow({children:[
     new TableCell({children:[new Paragraph({text:"No", alignment:AlignmentType.CENTER})]}),
@@ -1433,8 +1410,9 @@ async function eksporJadwalMR(){
   const tabelJadwal = new Table({width:{size:100, type:WidthType.PERCENTAGE}, rows:barisTabel});
 
   const kosong = () => new Paragraph({text:"", spacing:{after:160}});
-  const doc = new Document({sections:[{properties:{}, children:[
-    headerTable, kosong(),
+  const doc = new Document({
+    styles: {default: {document: {run: {font:"Times New Roman", size:24}}}},
+    sections:[{properties:{}, children:[
     new Paragraph({children:[new TextRun("No : ")]}),
     new Paragraph({children:[new TextRun("Hal : Kegiatan Laporan Pagi (morning report).")]}),
     new Paragraph({children:[new TextRun(`         PPDS Radiologi FK-USU Bulan ${bulanLabel}`)]}),
